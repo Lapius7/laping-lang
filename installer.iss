@@ -41,11 +41,11 @@ Name: "{autodesktop}\Laping"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopi
 Name: "desktopicon"; Description: "デスクトップにショートカットを作成する"; GroupDescription: "追加のショートカット:"
 
 [Code]
-{ ユーザーPATH環境変数の操作はすべてここで明示的に行う。
-  Inno Setupの [Registry] + {olddata} 方式は、既存のPath値が
-  レジストリに存在しない（空）場合に先頭の区切り文字だけが書き込まれる
-  事故が起きるため使わない。RegQueryStringValueの戻り値を必ず確認し、
-  「値が無い」場合と「値はあるが空文字列」の場合を区別して処理する。 }
+// ユーザーPATH環境変数の操作はすべてここで明示的に行う。
+// Inno Setupの [Registry] + olddataマクロ方式は、既存のPath値が
+// レジストリに存在しない（空）場合に先頭の区切り文字だけが書き込まれる
+// 事故が起きるため使わない。RegQueryStringValueの戻り値を必ず確認し、
+// 「値が無い」場合と「値はあるが空文字列」の場合を区別して処理する。
 
 function GetUserPath(): string;
 var
@@ -101,8 +101,8 @@ begin
   OrigPath := GetUserPath();
   if OrigPath = '' then
     exit;
-  { 前後に ; を補った文字列上で探し、見つかった範囲をそのまま削る。
-    削除後に残る先頭/末尾の ; や ;; の重複は最後に正規化する。 }
+  // 前後に ; を補った文字列上で探し、見つかった範囲をそのまま削る。
+  // 削除後に残る先頭/末尾の ; や ;; の重複は最後に正規化する。
   Padded := ';' + OrigPath + ';';
   P := Pos(';' + Uppercase(AppPath) + ';', Uppercase(Padded));
   if P = 0 then
