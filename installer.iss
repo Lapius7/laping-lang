@@ -109,7 +109,7 @@ begin
     exit;
   Result_ := Copy(Padded, 1, P) + Copy(Padded, P + Length(AppPath) + 1, MaxInt);
   while Pos(';;', Result_) > 0 do
-    Result_ := StringReplace(Result_, ';;', ';', [rfReplaceAll]);
+    Delete(Result_, Pos(';;', Result_), 1);
   if (Length(Result_) > 0) and (Result_[1] = ';') then
     Delete(Result_, 1, 1);
   if (Length(Result_) > 0) and (Result_[Length(Result_)] = ';') then
