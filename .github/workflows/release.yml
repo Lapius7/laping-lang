@@ -47,9 +47,37 @@ jobs:
         with:
           name: laping-windows-x86_64
           path: laping-windows-x86_64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: laping-windows-binaries
+          path: |
+            laping.exe
+            libcurl-x64.dll
+
+  build-installer:
+    needs: build-windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: laping-windows-binaries
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v',''
+          $env:LAPING_VERSION = $version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: laping-windows-setup
+          path: laping-windows-x86_64-setup.exe
 
   release:
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-installer]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -62,4 +90,5 @@ jobs:
           files: |
             dist/laping-linux-x86_64
             dist/laping-windows-x86_64.zip
+            dist/laping-windows-x86_64-setup.exe
           generate_release_notes: true
