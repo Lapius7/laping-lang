@@ -56,8 +56,9 @@ laping --version       # バージョン表示
 
 1. `https://api.github.com/repos/Lapius7/laping-lang/releases/latest` にアクセスし、最新リリースのタグを取得
 2. 実行中のバージョン（`laping --version`）と比較
-3. ローカルより新しければ、OSに対応するバイナリ（`laping-linux-x86_64` または `laping-windows-x86_64.exe`）をダウンロード
-4. 現在の実行ファイルをバックアップしてから新しいバイナリに置き換える
+3. ローカルより新しければ、OSに対応する配布物をダウンロード（Linuxは`laping-linux-x86_64`、Windowsは`laping-windows-x86_64.zip`）
+4. Windowsの場合は標準搭載の`tar.exe`でzipを展開し、中の`laping.exe`と`libcurl-x64.dll`を取り出す（Windows 10 1803以降が必要）
+5. 現在の実行ファイル（とWindowsの場合はDLL）をバックアップしてから新しいものに置き換える
 
 開発者がGitHubに新しいバージョンをタグ付き（`vX.Y.Z`）でプッシュすると、CI（GitHub Actions）がLinux/Windows向けにビルドしてReleaseへ自動添付します。各ユーザーは `laping update` を実行するだけで最新版に追従できます。
 

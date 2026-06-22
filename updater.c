@@ -19,7 +19,7 @@
 #define API_URL "https://api.github.com/repos/" GITHUB_REPO "/releases/latest"
 
 #if defined(_WIN32)
-#define ASSET_NAME "laping-windows-x86_64.exe"
+#define ASSET_NAME "laping-windows-x86_64.zip"
 #define EXE_SUFFIX ".exe"
 #else
 #define ASSET_NAME "laping-linux-x86_64"
@@ -163,9 +163,13 @@ void run_self_update(const char *current_version) {
         return;
     }
 
-    char tmp_path[] = "laping_update_tmp" EXE_SUFFIX;
+#if defined(_WIN32)
+    char download_path[] = "laping_update_tmp.zip";
+#else
+    char download_path[] = "laping_update_tmp";
+#endif
     printf("ダウンロード中: %s\n", asset_url);
-    if (download_to_file(asset_url, tmp_path) != 0) {
+    if (download_to_file(asset_url, download_path) != 0) {
         fprintf(stderr, "Laping: ダウンロードに失敗しました\n");
         free(asset_url);
         free(latest_tag);
@@ -174,7 +178,21 @@ void run_self_update(const char *current_version) {
         return;
     }
 
-#if !defined(_WIN32)
+    char tmp_path[] = "laping_update_tmp" EXE_SUFFIX;
+#if defined(_WIN32)
+    /* Windowsはzip配布なので、標準搭載のtar.exeで展開して
+     * laping.exe / libcurl-x64.dll を取り出す。 */
+    if (system("tar -xf laping_update_tmp.zip") != 0) {
+        fprintf(stderr, "Laping: zipの展開に失敗しました（tar.exeが必要です）\n");
+        free(asset_url);
+        free(latest_tag);
+        free(buf.data);
+        curl_global_cleanup();
+        return;
+    }
+    remove(download_path);
+    rename("laping.exe", tmp_path);
+#else
     chmod(tmp_path, 0755);
 #endif
 
@@ -210,6 +228,20 @@ void run_self_update(const char *current_version) {
         return;
     }
     remove(backup_path);
+
+#if defined(_WIN32)
+    /* libcurl-x64.dll を実行ファイルと同じフォルダにコピーする。 */
+    char dll_dest[4096];
+    snprintf(dll_dest, sizeof(dll_dest), "%s", self_path);
+    char *last_sep = strrchr(dll_dest, '\\');
+    if (!last_sep) last_sep = strrchr(dll_dest, '/');
+    if (last_sep) {
+        snprintf(last_sep + 1, sizeof(dll_dest) - (size_t)(last_sep + 1 - dll_dest),
+                  "libcurl-x64.dll");
+        remove(dll_dest);
+        rename("libcurl-x64.dll", dll_dest);
+    }
+#endif
 
     printf("更新が完了しました: %s\n", latest_tag);
 

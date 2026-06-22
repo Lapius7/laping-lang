@@ -42,14 +42,11 @@ jobs:
             -o laping.exe laping.c updater.c \
             -L curl-mingw/lib -lcurl.dll -lws2_32 -lwldap32 -lcrypt32
           cp curl-mingw/bin/libcurl-x64.dll .
-          cp laping.exe laping-windows-x86_64.exe
           zip laping-windows-x86_64.zip laping.exe libcurl-x64.dll
       - uses: actions/upload-artifact@v4
         with:
           name: laping-windows-x86_64
-          path: |
-            laping-windows-x86_64.zip
-            laping-windows-x86_64.exe
+          path: laping-windows-x86_64.zip
 
   release:
     needs: [build-linux, build-windows]
@@ -65,5 +62,4 @@ jobs:
           files: |
             dist/laping-linux-x86_64
             dist/laping-windows-x86_64.zip
-            dist/laping-windows-x86_64.exe
           generate_release_notes: true
