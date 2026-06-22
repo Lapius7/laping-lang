@@ -18,6 +18,10 @@
 #include <stdarg.h>
 #include "updater.h"
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #define LAPING_VERSION "v1.0.0"
 
 #define MAX_TOKENS   4096
@@ -550,6 +554,10 @@ static char *read_file(const char *path) {
 }
 
 int main(int argc, char **argv) {
+#if defined(_WIN32)
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
     if (argc != 2) {
         fprintf(stderr, "使い方: %s <file.lp>\n", argv[0]);
         fprintf(stderr, "       %s update      (最新版を確認・更新)\n", argv[0]);
