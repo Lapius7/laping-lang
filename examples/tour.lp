@@ -1,62 +1,45 @@
-# Laping v2 の主な機能をひととおり紹介するサンプル
+# Laping v2.1 の主な機能をひととおり紹介するサンプル
 
-print("=== 変数と文字列の埋め込み ===")
-name = "Laping"
-version = 2
-print("{name} v{version} へようこそ！")
+print(bold("=== データは -> で流す ==="))
+scores = [72, 95, 58, 81, 66]
+[s for s in scores if s >= 60]
+    -> map(fn s => s + 5)
+    -> sort()
+    -> print()
+print("平均: {sum(scores) / len(scores):.1} 点")
 
-print("=== リストと関数型スタイル ===")
-nums = [5, 3, 8, 1, 9, 2]
-evens_squared = nums
-    .filter(fn(n) => n % 2 == 0)
-    .map(fn(n) => n ** 2)
-print("偶数の2乗:", evens_squared)
-print("合計:", sum(nums), " 最大:", max(nums), " 並べ替え:", sort(nums))
+print(bold("=== 無いかもしれない値は else で ==="))
+config = {server: {port: 8080}}
+print("port = {config.server.port else 80}, host = {config.server.host else "localhost"}")
 
-print("=== マップ ===")
-person = {name: "花子", age: 28, hobbies: ["読書", "旅行"]}
-person.age += 1
-for key, value in person {
-    print("  {key}: {value}")
+print(bold("=== 条件で値を選ぶ then / else ==="))
+for n in 1..4 {
+    print("{n} は", n % 2 == 0 then "偶数" else "奇数")
 }
 
-print("=== 関数とクロージャ ===")
-fn make_multiplier(factor) => fn(x) => x * factor
-triple = make_multiplier(3)
-print("triple(7) =", triple(7))
+print(bold("=== 後置修飾子（何をするかを先に書く） ==="))
+print("  {i} は 3 の倍数") for i in 1..10 if i % 3 == 0
+write("🏁") repeat 5
+print()
 
-fn factorial(n) {
-    return 1 if n <= 1
-    return n * factorial(n - 1)
-}
-print("10! =", factorial(10))
+print(bold("=== record と型ごとのメソッド ==="))
+record Point(x, y = 0)
+fn Point.dist(p) => sqrt(p.x ** 2 + p.y ** 2)
+p = Point(3, 4)
+print(p, "原点からの距離:", p.dist())
+fn string.shout(s) => upper(s) + "!"
+print("laping".shout())
 
-print("=== 後置修飾子（Laping 独自のスタイル） ===")
-for i in 1..10 {
-    continue unless i % 3 == 0
-    print("  {i} は3の倍数")
-}
-
-print("=== match ===")
-fn season(month) {
-    match month {
-        3..5 => return "春"
-        6..8 => return "夏"
-        9..11 => return "秋"
-        12, 1, 2 => return "冬"
-        _ => return "不明"
-    }
-}
+print(bold("=== match は式としても使える ==="))
+fn season(month) => match month { 3..5 => "春", 6..8 => "夏", 9..11 => "秋", _ => "冬" }
 print("4月は{season(4)}、10月は{season(10)}、1月は{season(1)}")
 
-print("=== エラー処理 ===")
-fn safe_divide(a, b) {
-    try {
-        return a / b
-    } catch e {
-        print("  エラーを捕捉しました: {e}")
-        return nil
-    }
-}
-print("10 / 4 =", safe_divide(10, 4))
-print("10 / 0 =", safe_divide(10, 0))
+print(bold("=== 間違いに早く気づける ==="))
+MAX_USERS = 100
+try { MAX_USERS = 200 } catch e { print("  ", e) }
+try { p.z = 1 } catch e { print("  ", e) }
+print("  1 < 5 < 10 は", 1 < 5 < 10, "/ [] is list は", [] is list)
+
+print(bold("=== 画面表示 ==="))
+table([["東京", 1400], ["大阪", 880]], ["都市", "人口(万人)"])
+box("Laping へようこそ", "案内")

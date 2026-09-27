@@ -2,7 +2,7 @@ CC ?= gcc
 CFLAGS ?= -O2 -Wall -Wextra
 LDLIBS = -lcurl -lm -lpthread
 
-SRCS = src/main.c src/lexer.c src/parser.c src/value.c src/interp.c src/builtins.c src/updater.c
+SRCS = src/main.c src/lexer.c src/parser.c src/value.c src/interp.c src/builtins.c src/ui.c src/updater.c
 HDRS = src/laping.h src/updater.h
 
 laping: $(SRCS) $(HDRS)
