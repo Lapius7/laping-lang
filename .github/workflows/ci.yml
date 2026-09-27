@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install libcurl
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+      - name: Build
+        run: make CFLAGS="-O2 -Wall -Wextra -Werror"
+      - name: Test
+        run: make test
+      - name: Test (AddressSanitizer + GC stress)
+        run: |
+          gcc -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -o laping_asan src/*.c -lcurl -lm -lpthread
+          LAPING_GC_STRESS=1 ASAN_OPTIONS=detect_leaks=0 tests/run_tests.sh ./laping_asan
+
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+      - name: Download prebuilt libcurl (mingw, win64)
+        run: |
+          curl -sL "https://curl.se/windows/latest.cgi?p=win64-mingw.zip" -o curl-mingw.zip
+          unzip -q curl-mingw.zip
+          mv curl-*-win64-mingw curl-mingw
+      - name: Build
+        run: |
+          x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -Werror -D__USE_MINGW_ANSI_STDIO=1 \
+            -I curl-mingw/include \
+            -o laping.exe src/*.c \
+            -L curl-mingw/lib -lcurl.dll -lws2_32 -lwldap32 -lcrypt32 \
+            -Wl,--stack,268435456

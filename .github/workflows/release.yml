@@ -16,7 +16,9 @@ jobs:
       - name: Install libcurl
         run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
       - name: Build
-        run: gcc -O2 -Wall -Wextra -o laping-linux-x86_64 laping.c updater.c -lcurl
+        run: gcc -O2 -Wall -Wextra -o laping-linux-x86_64 src/*.c -lcurl -lm -lpthread
+      - name: Test
+        run: tests/run_tests.sh ./laping-linux-x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: laping-linux-x86_64
@@ -37,10 +39,11 @@ jobs:
           mv curl-*-win64-mingw curl-mingw
       - name: Build
         run: |
-          x86_64-w64-mingw32-gcc -O2 -Wall -Wextra \
+          x86_64-w64-mingw32-gcc -O2 -Wall -Wextra -D__USE_MINGW_ANSI_STDIO=1 \
             -I curl-mingw/include \
-            -o laping.exe laping.c updater.c \
-            -L curl-mingw/lib -lcurl.dll -lws2_32 -lwldap32 -lcrypt32
+            -o laping.exe src/*.c \
+            -L curl-mingw/lib -lcurl.dll -lws2_32 -lwldap32 -lcrypt32 \
+            -Wl,--stack,268435456
           cp curl-mingw/bin/libcurl-x64.dll .
           zip laping-windows-x86_64.zip laping.exe libcurl-x64.dll
       - uses: actions/upload-artifact@v4
