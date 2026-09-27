@@ -21,6 +21,8 @@ jobs:
         run: make CFLAGS="-O2 -Wall -Wextra -Werror"
       - name: Test
         run: make test
+      - name: Check AI guide is up to date
+        run: python3 tools/update_ai_guide.py --check
       - name: Test (AddressSanitizer + GC stress)
         run: |
           gcc -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \

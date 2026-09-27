@@ -1,0 +1,14 @@
+# Laping
+
+> Laping（拡張子 .lp）は、C で実装されたインタプリタ型のプログラミング言語です。Python や JavaScript に似た見た目ですが別の言語で、-> パイプライン、「値 else 既定値」、後置修飾子（print(x) for x in xs if x > 0）、record 型、test / expect などの独自構文があります。コードを書く前に、AI 向けの仕様書を読んでください。
+
+## 仕様
+
+- [AI 向け言語仕様](https://raw.githubusercontent.com/Lapius7/laping-lang/main/docs/AI_GUIDE.md): 構文・よくある間違い・全組み込み関数・手本（AI はまずこれを読む）
+- [README](https://raw.githubusercontent.com/Lapius7/laping-lang/main/README.md): 人間向けの詳しい説明
+
+## サンプル
+
+- [examples/tour.lp](https://raw.githubusercontent.com/Lapius7/laping-lang/main/examples/tour.lp): 主な機能の紹介
+- [examples/todo.lp](https://raw.githubusercontent.com/Lapius7/laping-lang/main/examples/todo.lp): CLI アプリの例
+- [examples/report.lp](https://raw.githubusercontent.com/Lapius7/laping-lang/main/examples/report.lp): データ集計の例
