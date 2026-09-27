@@ -2,41 +2,64 @@
 
 **Lap + Lang = Laping**
 
-C言語で実装された、インタプリタ型のプログラミング言語です。
+**読んだ順に理解できて、間違いにすぐ気づける**ことを目指した、C言語製のインタプリタ型プログラミング言語です。
 Lexer → Parser → Tree-walking Interpreter という構成で、外部の構文解析ライブラリには依存していません（HTTP通信用に自動更新機能のみ libcurl を使用）。
 
 ```laping
-fn fizzbuzz(n) {
-    match 0 {
-        n % 15 => return "FizzBuzz"
-        n % 3 => return "Fizz"
-        n % 5 => return "Buzz"
-        _ => return str(n)
-    }
-}
+record Sale(shop, price, qty)
+fn Sale.total(s) => s.price * s.qty
 
-for i in 1..15 {
-    print(fizzbuzz(i))
-}
+sales = [Sale("東京", 120, 30), Sale("大阪", 110, 45), Sale("東京", 400, 8)]
 
-scores = {太郎: 82, 花子: 95, 次郎: 67}
-for name, score in scores {
-    print("{name}: {score}点") if score >= 80
+# データは -> で左から右へ流す
+tokyo = sales -> filter(fn s => s.shop == "東京") -> map(fn s => s.total()) -> sum()
+print("東京の売上: {tokyo:>8} 円")
+
+# 無いかもしれない値は else で既定値に
+config = {server: {host: "example.com"}}
+port = config.server.port else 8080
+
+# 何をするかを先に、条件は後ろに（後置修飾子）
+print("{s.shop}: {s.total()}") for s in sales if s.total() > 3000
+
+# テストは同じ言語で、すぐ横に書ける（laping test で実行）
+test "売上を計算できる" {
+    expect Sale("東京", 100, 3).total() == 300
 }
 ```
 
 ## 特徴
 
-- 記号自体は他言語と同じ一般的なもの（`=` `+` `if` `while` など）を採用しつつ、組み立て方（構文構造）が独自
-- Ruby のような **後置修飾子構文**（`stmt if cond` / `unless` / `while` / `until`）
-- 関数・クロージャ・アロー関数・デフォルト引数・可変長引数
-- リスト・マップ・範囲（`1..10`）、`for ... in`、`match`、`try` / `catch` / `finally`
-- 文字列への式の埋め込み（`"合計 {a + b} 円"`）、UTF-8 対応（日本語の文字数・添字・変数名）
-- `x.f(a)` と書くと `f(x, a)` を呼ぶメソッド構文（組み込み関数にもユーザー関数にも使える）
-- 型不一致・ゼロ除算・未定義変数などを実行時に検出してエラーにする（暗黙の型変換なし）
-- 90以上の組み込み関数、`import` によるファイル分割、対話モード（REPL）
-- マーク&スイープ GC によるメモリ管理
-- 単一バイナリで動作し、`laping update` でGitHub Releasesから自動更新できる
+- **読んだ順に理解できる**: `->` パイプライン、後置修飾子（`stmt if cond` / `for` / `repeat`）、`then` / `else` による値の選択
+- **記号より言葉**: 既定値は `値 else 既定値`、型の判定は `x is list`、回数の繰り返しは `repeat 3 { }`
+- **間違いにすぐ気づける**: `record` の打ち間違いフィールド、不明な型名、定数（全部大文字の名前）の書き換えをエラーにし、「もしかして」の候補を出す
+- **管理しやすい**: `import "x" as x` でモジュールごとに名前を分け、`_` で始まる名前は非公開。テストは `test` ブロックで同じファイルにも書ける
+- **見やすい CLI**: 該当行と `^` を示す色付きのエラー表示、コマンド付きの対話モード、`laping test` / `check` / `new` / `doc`
+- 関数・クロージャ・`fn x => x * 2`・デフォルト引数・可変長引数、リスト・マップ・範囲・内包表記、`match`（式としても使える）、`try` / `catch` / `finally`
+- 文字列への式の埋め込みと書式（`"合計 {a + b:>8} 円"`）、UTF-8 対応（日本語の文字数・添字・変数名、全角文字の表示幅）
+- 表・枠・進捗バー・色などの画面表示、JSON、データ集計を含む 130 以上の組み込み関数（`laping doc` で一覧）
+- 暗黙の型変換なし、マーク&スイープ GC、単一バイナリ、`laping update` で自動更新
+
+## 設計方針 — なぜこの書き方なのか
+
+Laping の構文は、他の言語の記号をそのまま借りるのではなく、それぞれに「こう書くと楽になる」「こう書くと間違えにくい」という理由があるものにしています。
+
+| 書き方 | 意味 | 理由 |
+|---|---|---|
+| `xs -> filter(f) -> sum()` | 左の値を右の関数の第1引数に渡す | データの流れがそのまま矢印の向きになり、書いた順に読める。日本語キーボードで打ちにくい `\|` を使わない |
+| `config.port else 8080` | 値が無いときの既定値 | 記号ではなく言葉で書ける。`or` と違い `0` や `""` を置き換えない。途中のキーが無い・nil でもエラーにならない（変数名の打ち間違いはエラーのまま） |
+| `x > 0 then "正" else "負"` | 条件で値を選ぶ | 英文のように読める。`?:` を覚えなくていい |
+| `print(x) for x in xs if x > 0` | 後置の繰り返し | 既存の後置修飾子（`if` / `unless` / `while`）と同じ「何をするかが先、条件は後」の1ルール |
+| `[x * 2 for x in xs if x > 0]` | 内包表記 | 上の後置 `for` と同じ語順なので、覚えることが増えない |
+| `repeat 3 { }` / `hi() repeat 3` | 回数だけ繰り返す | 使わないカウンタ変数を書かなくていい |
+| `1 < x < 10` | 連鎖比較 | 数学と同じ書き方。各項は1回だけ評価される |
+| `record Point(x, y)` | 型の宣言 | 宣言していないフィールドへの代入をエラーにして、打ち間違いにすぐ気づける |
+| `fn Point.len(p)` / `fn string.shout(s)` | 型にメソッドを追加 | クラスや `self` なしで、関数と同じ書き方。組み込み型にも追加できる |
+| `x is list` | 型の判定 | `type(x) == "lsit"` のような打ち間違いを「不明な型名」エラーで防ぐ |
+| `MAX_SIZE = 10` | 定数 | 全部大文字の名前は再代入できない。キーワードを増やさずに「変えてはいけない値」を表せる |
+| `import "util" as util` | モジュール | 名前の衝突を防ぐ。`_` で始まる名前は外から見えない |
+| `test "名前" { expect a == b }` | テスト | 失敗すると左辺と右辺の値を自動で表示する。通常の実行では飛ばされる |
+| `"{点:>5}"` / `"{率:.1}"` | 書式付きの埋め込み | 桁揃えや小数の桁数を、文字列の中でそのまま指定できる |
 
 ## インストール
 
@@ -80,33 +103,84 @@ make install   # ~/.local/bin/laping にインストール
 | `src/parser.c` | 構文解析（トークン列 → AST） |
 | `src/interp.c` | 評価器（AST を直接たどって実行、スコープ・例外・関数呼び出し） |
 | `src/value.c` | 値・文字列・リスト・マップ・GC |
-| `src/builtins.c` | 組み込み関数 |
+| `src/builtins.c` | 組み込み関数（説明文もここにまとめて書く） |
+| `src/ui.c` | 端末表示（色・全角文字の表示幅・エラー表示用のソース保存） |
 | `src/main.c` | コマンドライン・対話モード |
 | `src/updater.c` | 自動更新 |
 
 ## 使い方
 
 ```sh
-laping main.lp            # main.lp を実行
-laping main.lp a b c      # 引数付きで実行（スクリプト内では args で受け取れる）
-laping                    # 対話モード (REPL) を起動
-laping -e 'print(1 + 2)'  # コードを直接実行
-laping update             # GitHub Releasesの最新版を確認し、自動更新
-laping --version          # バージョン表示
+laping main.lp              # main.lp を実行
+laping main.lp a b c        # 引数付きで実行（スクリプト内では args で受け取れる）
+laping                      # 対話モード (REPL) を起動
+laping run main.lp          # 実行（laping main.lp と同じ）
+laping check *.lp           # 実行せずに構文だけを確認
+laping test                 # *_test.lp の test ブロックを実行（フォルダやファイルも指定できる）
+laping new myapp            # プロジェクトのひな形（main.lp・lib.lp・main_test.lp）を作る
+laping doc                  # 組み込み関数の一覧
+laping doc format           # 関数の説明
+laping -e 'print(1 + 2)'    # コードを直接実行
+laping update               # GitHub Releasesの最新版を確認し、自動更新
+laping version              # バージョン表示
+laping help                 # 使い方
 ```
 
-対話モードでは、入力した式の値がそのまま表示されます。`{` や `(` が閉じていない間は続きの行を入力できます。
+端末に出力しているときは、エラーや表が色付きで表示されます。`NO_COLOR=1` で色を消し、`LAPING_COLOR=always` で常に色を付けられます。
+
+### 対話モード
+
+入力した式の値が色付きで表示されます。`{` や `(` が閉じていない間や、行末が `->` の間は続きの行を入力できます。
 
 ```
-> xs = [3, 1, 2]
-> sort(xs)
-[1, 2, 3]
-> fn sq(x) {
-...     return x * x
-... }
-> sq(12)
-144
+laping› xs = [3, 1, 2]
+laping› xs -> sort()
+=> [1, 2, 3]
+laping› fn sq(x) {
+   …     return x * x
+   … }
+laping› sq(12)
+=> 144
+laping› :time (1..100000) -> sum()
+=> 5000050000
+  0.004 秒
 ```
+
+| コマンド | 説明 |
+|---|---|
+| `:help` | コマンド一覧 |
+| `:vars` | 定義した変数と関数の一覧（型と値） |
+| `:doc [関数名]` | 組み込み関数の説明 |
+| `:load <ファイル>` | ファイルを読み込んで実行する |
+| `:time <コード>` | 実行時間を測る |
+| `:reset` | 変数をすべて消す |
+| `:clear` | 画面を消す |
+| `:q` | 終了（`exit()` や Ctrl+D でも終了） |
+
+### テスト
+
+`*_test.lp` というファイルに `test` ブロックを書き、`laping test` で実行します。`expect` が失敗すると、比較の左辺と右辺の値が表示されます。
+
+```laping
+# calc_test.lp
+fn add(a, b) => a + b
+
+test "足し算ができる" {
+    expect add(1, 2) == 3
+}
+```
+
+```
+▶ calc_test.lp
+  ✓ 足し算ができる
+  ✗ わざと失敗
+      expect が失敗しました: 左辺は 4、右辺は 5
+      場所: calc_test.lp:6
+
+✗ 2 件中 1 件が失敗しました (0.00 秒)
+```
+
+`test` ブロックは `laping test` のときだけ実行され、普通に `laping calc_test.lp` と実行したときは飛ばされます。そのため、関数を定義したファイルに直接テストを書いておくこともできます。
 
 ## 自動更新の仕組み
 
@@ -204,11 +278,12 @@ x += 5             # 複合代入: += -= *= /= %=
 | `*` `/` `//` `%` | 乗算・除算・切り捨て除算・剰余 |
 | `+` `-` | 加算・減算 |
 | `..` `...` | 範囲（`..` は終端を含む、`...` は含まない） |
-| `==` `!=` `<` `>` `<=` `>=` `in` `not in` | 比較・所属判定 |
+| `==` `!=` `<` `>` `<=` `>=` `in` `not in` `is` `is not` | 比較・所属判定・型の判定（`1 < x < 10` のように連鎖できる） |
 | `not` | 否定 |
 | `and` `&&` | 論理積（短絡評価） |
 | `or` `\|\|` | 論理和（短絡評価） |
-| `条件 ? a : b` | 三項演算子 |
+| `x -> f(a)` | パイプライン（`f(x, a)` と同じ） |
+| `条件 then a else b` / `値 else 既定値` | 値の選択 / 既定値（`条件 ? a : b` も使える） |
 
 演算子の型の規則（暗黙の型変換はしません）:
 
@@ -221,11 +296,50 @@ x += 5             # 複合代入: += -= *= /= %=
 | `==` `!=` | 何でも比較可能。リストとマップは中身で比較。型が違えば常に不一致 |
 | `in` | 要素 `in` リスト、キー `in` マップ、部分文字列 `in` 文字列、数値 `in` 範囲 |
 
-`and` / `or` は真偽値ではなく、評価したオペランドの値をそのまま返します。
+`and` / `or` は真偽値ではなく、評価したオペランドの値をそのまま返します。`0` や `""` も置き換えたくない場合は、次の `else` を使ってください。
+
+### パイプライン `->`
+
+`x -> f(a, b)` は `f(x, a, b)` と同じ意味です。データを左から右へ流すように書けるので、処理を書いた順に読めます。右側が関数そのもの（`x -> sqrt`）なら `sqrt(x)` になります。行頭に `->` を書けば、次の行へ続けられます。
 
 ```laping
-name = input_name or "名無し"   # input_name が nil や "" なら "名無し"
+[3, 1, 4, 1, 5, 9]
+    -> filter(fn x => x > 2)
+    -> map(fn x => x * 10)
+    -> sort()
+    -> print()                 # [30, 40, 50, 90]
 ```
+
+### 既定値 `else` と、値を選ぶ `then` / `else`
+
+`値 else 既定値` は、値が `nil` のときに既定値を使います。さらに左側の `a.b.c` や `a[i]` の途中で、nil になった・キーが存在しない・添字が範囲外だった場合も、エラーにせず既定値を使います。変数名の打ち間違い（未定義の変数）は、これまでどおりエラーになります。
+
+```laping
+config = {server: {port: 8080}}
+port = config.server.port else 80           # 8080
+host = config.server.host else "localhost"  # キーが無いので "localhost"
+first = args[0] else "引数なし"               # 範囲外なので "引数なし"
+count = 0 else 10                           # 0（or と違い 0 や "" は置き換えない）
+name = user.name else throw "name がありません"  # 無ければエラーにする
+```
+
+`条件 then 値1 else 値2` は、条件が真なら値1、偽なら値2 になります。
+
+```laping
+print(n % 2 == 0 then "偶数" else "奇数")
+size = n > 100 then "大" else n > 10 then "中" else "小"
+```
+
+### 連鎖比較と `is`
+
+`1 < x < 10` は `1 < x and x < 10` と同じ意味です（`x` は1回だけ評価されます）。`is` は値の型を調べます。
+
+```laping
+print(0 <= score <= 100)
+print(x is number, xs is list, p is Point, v is not nil)
+```
+
+使える型名は `nil` `bool` `number` `string` `list` `map` `function` `range` と、`record` で宣言した名前です。それ以外の名前はエラーになるので、打ち間違いにすぐ気づけます（`x is lsit` → 「不明な型名 'lsit'／もしかして 'list' ですか？」）。
 
 ### 文字列
 
@@ -241,9 +355,22 @@ print("改行\nタブ\t引用符\" 絵文字\u{1F600}")
 - `"..."` の中では `{式}` がその値の文字列表現に置き換わります
 - エスケープ: `\n` `\t` `\r` `\0` `\e` `\\` `\"` `\'` `\{` `\}` `\u{16進数}`
 - `'...'` は埋め込みを行わず、エスケープも `\\` と `\'` のみです
+- `{式:書式}` で桁揃えや小数の桁数を指定できます（下の表）
 - 文字列は改行を含めて複数行に書けます
 - 長さ・添字は **文字単位**（UTF-8）で数えます: `len("こんにちは")` は `5`、`"こんにちは"[1]` は `"ん"`
 - 負の添字は後ろから数えます: `"abc"[-1]` は `"c"`
+
+埋め込みの書式 `{式:書式}` は `[埋め文字][< > ^][幅][.桁数]` の形です。全角文字は幅2として揃えます。
+
+```laping
+名前 = "花子"
+点 = 95.5
+print("[{名前:<6}] {点:>7.2} 点")   # [花子  ]   95.50 点
+print("[{"中央":*^8}]")             # [**中央**]
+print("{3.14159:.3}")               # 3.142
+```
+
+同じ書式は `format()` でも使えます。`"..."` の中の `{}` は埋め込みになるため、書式は `'...'` で書きます: `format('{} は {:>5} 点', name, score)`
 
 ### リスト
 
@@ -338,7 +465,7 @@ for key, value in {a: 1} { print(key, value) }  # キーと値
 
 ### 後置修飾子構文（Laping 独自のスタイル）
 
-**単文**（代入・式・`return`・`break`・`continue`・`throw`）の末尾に `if` / `unless` / `while` / `until` を置くと、条件付きで実行できます。
+**単文**（代入・式・`return`・`break`・`continue`・`throw`）の末尾に `if` / `unless` / `while` / `until` / `for` / `repeat` を置くと、条件付きで、または繰り返して実行できます。「何をするか」を先に書き、条件や繰り返しは後ろに書く、という1つのルールです。
 
 ```laping
 print("正の数です") if x > 0
@@ -348,10 +475,34 @@ continue unless i % 3 == 0
 throw "不正な値" if value < 0
 i += 1 while i < 10
 i -= 1 until i == 0
+print(x) for x in xs                  # 繰り返し
+print(x) for x in xs if x > 0         # 条件付きの繰り返し
+write("★") repeat 3                   # 回数だけ繰り返し
 ```
 
 - **同じ行に書かれている場合のみ**修飾子として解釈されます。改行を挟んだ場合は別々の文として扱われ、誤って次の行の `if` ブロックを修飾子と誤認識することはありません
 - 修飾子の対象にできるのは **単文のみ** です。複数の文をまとめて条件付きにしたい場合はブロック構文を使ってください。これにより「修飾子がどこまでを対象にしているか」が常に1文に固定され、構文上の曖昧さが生まれません
+
+### 内包表記
+
+後置の `for` と同じ語順で、リストやマップを作れます。ループ変数は外に漏れません。
+
+```laping
+squares = [i * i for i in 1..5]                  # [1, 4, 9, 16, 25]
+evens = [x for x in xs if x % 2 == 0]
+lengths = {w: len(w) for w in ["apple", "kiwi"]}  # {"apple": 5, "kiwi": 4}
+pairs = ["{k}={v}" for k, v in {a: 1, b: 2}]      # ["a=1", "b=2"]
+```
+
+### repeat
+
+回数だけ繰り返します。カウンタ変数が要らないときに使います。`break` / `continue` も使えます。
+
+```laping
+repeat 3 {
+    print("やあ")
+}
+```
 
 ### match
 
@@ -370,6 +521,17 @@ match value {
 }
 ```
 
+`match` は式としても使え、一致した枝の値になります（どれにも一致しなければ `nil`）。枝は改行かカンマで区切ります。
+
+```laping
+fn season(m) => match m { 3..5 => "春", 6..8 => "夏", 9..11 => "秋", _ => "冬" }
+label = match code {
+    200 => "OK"
+    404 => "見つかりません"
+    _ => "エラー"
+}
+```
+
 ### 関数
 
 ```laping
@@ -383,7 +545,8 @@ fn greet(name, greeting = "こんにちは") => "{greeting}、{name}さん"   # 
 fn total(...nums) => sum(nums)      # 可変長引数（リストで受け取る）
 
 double = fn(x) => x * 2             # 無名関数
-[1, 2, 3].map(fn(x) => x + 1)       # 関数を引数に渡す
+triple = fn x => x * 3              # 引数が1つなら括弧を省略できる
+[1, 2, 3] -> map(fn x => x + 1)     # 関数を引数に渡す
 ```
 
 - `return` の無い関数、または値を書かない `return` は `nil` を返します
@@ -429,6 +592,40 @@ c.inc()
 print(c.value())   # => 1
 ```
 
+### record（型の宣言）と型ごとのメソッド
+
+`record` で、決まったフィールドを持つ型を宣言できます。宣言していないフィールドへの代入はエラーになるので、打ち間違いにすぐ気づけます。
+
+```laping
+record Point(x, y = 0)             # y は省略すると 0
+p = Point(3, 4)
+print(p)                           # Point(x: 3, y: 4)
+p.x = 10                           # OK
+p.z = 1                            # エラー: Point にフィールド 'z' はありません
+print(type(p), p is Point)         # Point true
+```
+
+`fn 型名.メソッド名(値, ...)` で、型にメソッドを追加できます。第1引数がその値です（`self` は不要）。`string` `list` `number` などの組み込み型にも追加できます。
+
+```laping
+fn Point.dist(p) => sqrt(p.x ** 2 + p.y ** 2)
+print(Point(3, 4).dist())          # 5
+
+fn string.shout(s) => upper(s) + "!"
+print("hello".shout())             # HELLO!
+```
+
+`x.f(a)` は、①型に追加したメソッド ②マップのキー `f` に入った関数 ③`f(x, a)` の順に探して呼びます。
+
+### 定数
+
+全部大文字の名前（2文字以上。`MAX_SIZE` や `API_URL` など）は定数になり、2回目の代入はエラーになります。キーワードを増やさずに「変えてはいけない値」を表せます。
+
+```laping
+MAX_SIZE = 10
+MAX_SIZE = 20    # エラー: 定数 MAX_SIZE は変更できません
+```
+
 ### スコープ
 
 - 関数を呼び出すたびに新しいスコープが作られます。`if` や `for` などのブロックは新しいスコープを作りません
@@ -472,16 +669,30 @@ Laping: リストの添字 10 が範囲外です（長さ 3） (7行目)
 ### ファイルの分割（import）
 
 ```laping
-import "lib/util"      # lib/util.lp を読み込んで実行する（.lp は省略可）
+import "lib/util"              # lib/util.lp を読み込んで実行する（.lp は省略可）
+import "lib/shapes" as shapes  # モジュールとして読み込む
+print(shapes.area(3, 4))
 ```
 
 - パスは `import` を書いたファイルのあるフォルダからの相対パスです
-- 読み込んだファイルで定義した関数や変数は、そのまま使えます
-- 同じファイルは2回目以降は読み込まれません
+- `as` を付けない場合、読み込んだファイルで定義した関数や変数は、そのまま使えます。同じファイルは2回目以降は読み込まれません
+- `as 名前` を付けると、ファイルは独立したスコープで実行され、その変数と関数をまとめたマップが `名前` に入ります。名前の衝突を防げます
+- `as` で読み込んだとき、`_` で始まる名前（`_helper` など）は外から見えません。公開する名前を一目で区別できます
 
 ### エラー検出
 
-Lapingは曖昧な挙動を避けるため、以下を実行時エラーとして検出します。いずれも `Laping: <内容> (<行番号>行目)` の形式でメッセージを出し、終了コード1で終了します（`try` で捕捉しない場合）。
+Lapingは曖昧な挙動を避けるため、以下を実行時エラーとして検出します。捕捉されなかったエラーは、場所・該当行・原因の位置（`^`）・ヒント・呼び出し履歴を表示して、終了コード1で終了します。
+
+```
+エラー: 未定義の変数 'numz'
+  --> report.lp:3:28
+  |
+3 |     return sum(nums) / len(numz)
+  |                            ^
+  ヒント: もしかして 'nums' ですか？
+  呼び出し履歴:
+    average() ← 5行目
+```
 
 | エラー内容 | 例 |
 |---|---|
@@ -493,15 +704,18 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | 関数でない値の呼び出し・引数の数の間違い | `nil()`、`len()` |
 | 大小比較できない型の比較 | `1 < "a"` |
 | 止まらない再帰 | `fn f() => f()` |
+| record に無いフィールドへの代入 | `Point(1, 2).z = 3` |
+| 不明な型名 | `x is lsit` |
+| 定数の書き換え | `MAX = 1` の後に `MAX = 2` |
 | 文字列リテラルが閉じられていない（構文エラー） | `print("abc` |
 | ブロックの `{` `}` が閉じられていない（構文エラー） | `if x > 0 { print(x)` |
 | 不正な文字（構文エラー） | 未対応の記号の使用 |
 
-構文エラーはプログラムの実行前に検出され、`Laping: 構文エラー: ...` と表示されます。
+構文エラーはプログラムの実行前に検出され、`構文エラー: ...` と表示されます。`laping check` を使うと、実行せずに構文だけを確認できます。
 
 ## 組み込み関数
 
-どの関数も `f(x, a)` と `x.f(a)` のどちらの形でも呼べます。
+どの関数も `f(x, a)`・`x.f(a)`・`x -> f(a)` のどの形でも呼べます。一覧と説明は `laping doc`（対話モードでは `:doc`、プログラム中では `help()`）でも表示できます。
 
 ### 入出力・ファイル
 
@@ -513,6 +727,36 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | `read_file(path)` | ファイルの中身を文字列で返す |
 | `write_file(path, s)` / `append_file(path, s)` | ファイルに書き込む / 追記する |
 | `file_exists(path)` | ファイルが存在するか |
+
+### 画面表示
+
+端末に出力しているときだけ色や太字が付き、ファイルやパイプに出すときは文字だけになります。全角文字は幅2として桁を揃えます。
+
+| 関数 | 説明 |
+|---|---|
+| `table(行のリスト, 見出し?)` | 罫線付きの表を表示する。行はリストかマップ（record）。数値は右寄せ |
+| `box(文字列, タイトル?)` | 文字列を枠で囲んで表示する |
+| `progress(現在, 全体, 幅?)` | 進捗バーの文字列（`[██████░░░░]  60%`） |
+| `pp(値)` | 入れ子のリストやマップを整形して表示する |
+| `color(値, 色名)` | 色を付ける（`red` `green` `yellow` `blue` `magenta` `cyan` `white` `gray` `black`、`赤` `緑` `青` なども可） |
+| `bold(値)` / `dim(値)` / `underline(値)` | 太字 / 薄字 / 下線 |
+| `confirm(質問)` | `[y/N]` で確認し、はいなら `true` |
+| `choose(質問, 選択肢)` | 番号付きの選択肢から選ばせ、選ばれた値を返す |
+| `clear_screen()` | 画面を消す |
+| `width(値)` | 端末上の表示幅 |
+
+```laping
+table([["りんご", 120], ["バナナ", 98]], ["品名", "価格"])
+```
+
+```
+┌────────┬──────┐
+│  品名  │ 価格 │
+├────────┼──────┤
+│ りんご │  120 │
+│ バナナ │   98 │
+└────────┴──────┘
+```
 
 ### 型・変換
 
@@ -529,6 +773,7 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | `range(end)` / `range(start, end, step?)` | `end` を含まない範囲 |
 | `len(x)` | 文字列(文字数)・リスト・マップ・範囲の長さ |
 | `copy(x)` | リスト・マップの浅いコピー |
+| `to_json(値, インデント?)` / `from_json(文字列)` | JSON との変換 |
 
 ### リスト
 
@@ -553,6 +798,14 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | `join(x, sep?)` | 要素を文字列にしてつなげる |
 | `zip(a, b)` / `enumerate(x)` | `[[a0, b0], ...]` / `[[0, x0], ...]` |
 | `flatten(x)` / `unique(x)` | 1段平らにする / 重複を除く |
+| `first(x)` / `last(x)` | 最初 / 最後の要素（空なら `nil`） |
+| `take(x, n)` / `drop(x, n)` | 先頭の n 個 / 先頭の n 個を除いた残り |
+| `chunk(x, n)` | n 個ずつに区切る |
+| `group_by(x, f)` | 関数の値ごとにまとめたマップ |
+| `partition(x, f)` | `[条件を満たすもの, 満たさないもの]` |
+| `tally(x)` | 値ごとの出現回数のマップ |
+| `min_by(x, f)` / `max_by(x, f)` | 関数の値が最小 / 最大の要素 |
+| `is_empty(x)` | 空か（`nil` も空とみなす） |
 
 ### 文字列
 
@@ -567,6 +820,9 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | `ord(s)` / `chr(n)` | 文字 ↔ Unicode コードポイント |
 | `pad_left(x, width, ch?)` / `pad_right(...)` | 指定の幅になるまで詰める |
 | `fixed(n, digits)` | 小数点以下の桁数を固定した文字列（`fixed(3.14159, 2)` は `"3.14"`） |
+| `format(書式, 値...)` | `{}` に値を埋め込む。`{:>8}` で右寄せ、`{:.2}` で小数2桁 |
+| `center(x, width, ch?)` | 中央に揃える |
+| `capitalize(s)` / `lines(s)` | 先頭を大文字に / 行ごとに分割 |
 
 ### マップ
 
@@ -599,6 +855,9 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 |---|---|
 | `args` | コマンドライン引数のリスト（`laping main.lp a b` なら `["a", "b"]`） |
 | `time()` | 現在時刻（UNIX 時間、秒） |
+| `date(書式?, 時刻?)` | 日時の文字列（既定は `"%Y-%m-%d %H:%M:%S"`） |
+| `env(名前, 既定値?)` | 環境変数を読む |
+| `help(関数?)` | 組み込み関数の説明を表示する |
 | `clock()` | プログラム開始からの CPU 時間（秒） |
 | `sleep(sec)` | 指定秒数待つ |
 | `exit(code?)` | プログラムを終了する |
@@ -609,6 +868,8 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 | ファイル | 内容 |
 |---|---|
 | [examples/tour.lp](examples/tour.lp) | 主な機能をひととおり紹介 |
+| [examples/todo.lp](examples/todo.lp) | TODO 管理の CLI アプリ（record・JSON 保存・table・進捗バー） |
+| [examples/report.lp](examples/report.lp) | 売上データの集計レポート（`->`・group_by・内包表記・書式付き埋め込み） |
 | [examples/quicksort.lp](examples/quicksort.lp) | 再帰とリスト操作によるクイックソート |
 | [examples/bank.lp](examples/bank.lp) | クロージャでオブジェクトを作り、例外で入力を検証する |
 | [examples/wordcount.lp](examples/wordcount.lp) | マップを使った単語の集計 |
@@ -618,34 +879,42 @@ Lapingは曖昧な挙動を避けるため、以下を実行時エラーとし�
 
 ```
 program     := statement*
-statement   := if_stmt | while_stmt | for_stmt | loop_stmt | match_stmt
-             | try_stmt | fn_decl | import_stmt
+statement   := if_stmt | while_stmt | for_stmt | loop_stmt | repeat_stmt | match_stmt
+             | try_stmt | fn_decl | record_decl | test_block | import_stmt
              | simple_stmt modifier?                  # 改行 or ";" で終わる
 if_stmt     := ("if" | "unless") expr block
                ("elif" expr block | "else" "if" expr block)* ("else" block)?
 while_stmt  := ("while" | "until") expr block
 for_stmt    := "for" IDENT ("," IDENT)? "in" expr block
 loop_stmt   := "loop" block
-match_stmt  := "match" expr "{" (pattern ("," pattern)* ("if" expr)? "=>" (block | simple_stmt))* "}"
+repeat_stmt := "repeat" expr block
+match_stmt  := "match" expr "{" (arm_head (block | simple_stmt))* "}"
+arm_head    := pattern ("," pattern)* ("if" expr)? "=>"
 pattern     := "_" | expr
 try_stmt    := "try" block ("catch" IDENT? block)? ("finally" block)?
-fn_decl     := "fn" IDENT fn_rest
-import_stmt := "import" STRING
+fn_decl     := "fn" (IDENT ".")? IDENT fn_rest            # fn Type.method(...)
+record_decl := "record" IDENT "(" params ")"
+test_block  := "test" STRING block
+import_stmt := "import" STRING ("as" IDENT)?
 block       := "{" statement* "}"
 
 simple_stmt := "let" IDENT ("," IDENT)* ("=" expr ("," expr)*)?
-             | "return" expr? | "break" | "continue" | "throw" expr
+             | "return" expr? | "break" | "continue" | "throw" expr | "expect" expr
              | target ("," target)* "=" expr ("," expr)*
              | target ("+=" | "-=" | "*=" | "/=" | "%=") expr
              | expr
 target      := IDENT | postfix "[" expr "]" | postfix "." IDENT
 modifier    := ("if" | "unless" | "while" | "until") expr   # simple_stmt と同じ行のみ有効
+             | "for" IDENT ("," IDENT)? "in" expr ("if" expr)?
+             | "repeat" expr
 
-expr        := or_expr ("?" expr ":" expr)?
+expr        := pipe ("then" expr "else" expr | "else" expr | "?" expr ":" expr)?
+pipe        := or_expr ("->" or_expr)*                   # x -> f(a) は f(x, a)
 or_expr     := and_expr (("or" | "||") and_expr)*
 and_expr    := not_expr (("and" | "&&") not_expr)*
 not_expr    := "not" not_expr | comparison
-comparison  := range (("==" | "!=" | "<" | ">" | "<=" | ">=" | "in" | "not" "in") range)*
+comparison  := range ((cmp_op range)+ | ("in" | "not" "in") range | "is" "not"? TYPE)*
+cmp_op      := "==" | "!=" | "<" | ">" | "<=" | ">="     # 連鎖できる: 1 < x < 10
 range       := additive ((".." | "...") additive)?
 additive    := term (("+" | "-") term)*
 term        := unary (("*" | "/" | "//" | "%") unary)*
@@ -653,18 +922,34 @@ unary       := ("-" | "+" | "!") unary | power
 power       := postfix ("**" unary)?
 postfix     := primary ("(" args ")" | "[" expr "]" | "." IDENT ("(" args ")")?)*
 primary     := NUMBER | STRING | "true" | "false" | "nil" | IDENT | "(" expr ")"
-             | "[" (expr ("," expr)* ","?)? "]"
-             | "{" (entry ("," entry)* ","?)? "}"
-             | "fn" IDENT? fn_rest
+             | "[" (expr ("," expr)* ","? | expr "for" for_clause)? "]"
+             | "{" (entry ("," entry)* ","? | expr ":" expr "for" for_clause)? "}"
+             | "fn" IDENT? fn_rest | "match" expr "{" (arm_head expr)* "}"
+             | "throw" expr
+for_clause  := IDENT ("," IDENT)? "in" expr ("if" expr)?
 entry       := IDENT ":" expr | IDENT | expr ":" expr
-fn_rest     := "(" params? ")" ("=>" expr | block)
+fn_rest     := "(" params? ")" ("=>" expr | block) | IDENT "=>" expr
 params      := param ("," param)*
 param       := IDENT ("=" expr)? | "..." IDENT
 ```
 
-予約語: `if` `elif` `else` `unless` `while` `until` `for` `in` `loop` `break` `continue` `return` `fn` `let` `true` `false` `nil` `and` `or` `not` `match` `try` `catch` `finally` `throw` `import`
+予約語: `if` `elif` `else` `unless` `while` `until` `for` `in` `loop` `repeat` `break` `continue` `return` `fn` `let` `true` `false` `nil` `and` `or` `not` `is` `then` `match` `try` `catch` `finally` `throw` `import`
 
-## v1 からの変更点
+文の先頭の `record` `test` `expect` と、`import` の後の `as` は、その位置でだけ特別な意味を持ちます（変数名としても使えます）。
+
+## v2.0 からの変更点（v2.1）
+
+v2.0 のプログラムはほぼそのまま動きますが、次の点が変わっています。
+
+- `repeat` `is` `then` が予約語になり、変数名に使えなくなりました
+- 式の直後の `else`（`値 else 既定値`）は既定値の指定になりました
+- 文の先頭の `expect` は `expect` 文になりました（`expect(...)` という名前の関数を文の先頭で呼べなくなりました）
+- 全部大文字（2文字以上）の変数は定数になり、再代入するとエラーになります
+- `"{式:書式}"` のように、埋め込み式の最後の `:` の後ろが書式として読める場合は書式として扱われます
+- エラーメッセージの形式が変わりました（`Laping: 内容 (N行目)` → 場所・該当行・ヒントを含む複数行の表示）
+- `laping test` `check` `new` `doc` `run` `help` `version` がコマンドになりました。これらと同じ名前の拡張子なしファイルを実行するには `laping run test` のようにします
+
+## v1 からの変更点（v2.0）
 
 v1 のプログラム（`examples/fizzbuzz.lp` など）はそのまま動きますが、次の点が変わっています。
 
@@ -683,7 +968,7 @@ v1 のプログラム（`examples/fizzbuzz.lp` など）はそのまま動きま
 make test
 ```
 
-`tests/*.lp` を実行し、出力を同名の `.expected` ファイルと比較します。GC の不具合を探すときは、すべての文の実行前に GC を走らせる `LAPING_GC_STRESS=1` を付けて実行してください。
+`tests/*.lp` を実行し、出力を同名の `.expected` ファイルと比較します（`*_test.lp` は `laping test` で実行します。終了コードは既定で 0、`名前.exit` があればその値を期待します）。GC の不具合を探すときは、すべての文の実行前に GC を走らせる `LAPING_GC_STRESS=1` を付けて実行してください。
 
 ```sh
 LAPING_GC_STRESS=1 tests/run_tests.sh ./laping
@@ -692,8 +977,8 @@ LAPING_GC_STRESS=1 tests/run_tests.sh ./laping
 ### 新バージョンのリリース方法
 
 ```sh
-git tag v2.0.0
-git push origin v2.0.0
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 タグをプッシュすると GitHub Actions が起動し、テストを実行したうえで Linux/Windows向けバイナリをビルドして自動的にReleaseへ添付します。各ユーザーは `laping update` を実行するだけで新しいバイナリに更新されます。タグのバージョンは `src/laping.h` の `LAPING_VERSION` と合わせてください。

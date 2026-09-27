@@ -1,0 +1,10 @@
+Point(x: 3, y: 4) 5 Point(x: 4, y: 4) Point true true
+Point(x: 10, y: 4) true false
+Point(x: 10, y: 4) {"x":10,"y":4}
+エラー: Point にフィールド 'z' はありません
+HELLO! 8 50
+エラー: 定数 MAX_SIZE は変更できません
+10
+2
+12 shapes false ["NAME", "area"]
+true

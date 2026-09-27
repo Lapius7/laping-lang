@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 
 typedef struct {
@@ -17,13 +18,34 @@ typedef struct {
     size_t len;
     size_t i;
     int line;
+    int first_col;    /* 1行目の先頭が元のソースの何列目か（文字列埋め込み用） */
+    size_t tok_start; /* 読んでいるトークンの開始位置 */
     TokenList out;
     char *nest; /* 'p' = ( or [,  'b' = { */
     int nest_len;
     int nest_cap;
 } Lexer;
 
+/* idx バイト目が何列目か（1 始まり） */
+static int col_at(Lexer *lx, size_t idx) {
+    size_t j = idx;
+    while (j > 0 && lx->src[j - 1] != '\n') j--;
+    if (j == 0) return (int)idx + lx->first_col;
+    return (int)(idx - j) + 1;
+}
+
+LP_NORETURN static void lex_error_at(Lexer *lx, int line, size_t idx, const char *fmt, ...) {
+    char buf[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    syntax_col = col_at(lx, idx > lx->len ? lx->len : idx);
+    syntax_error(line, NULL, "%s", buf);
+}
+
 static void push_tok(Lexer *lx, Token t) {
+    if (t.col == 0) t.col = col_at(lx, lx->tok_start);
     if (lx->out.count >= lx->out.cap) {
         lx->out.cap = lx->out.cap ? lx->out.cap * 2 : 256;
         lx->out.toks = xrealloc(lx->out.toks, sizeof(Token) * lx->out.cap);
@@ -62,7 +84,8 @@ static int continues_line(TokKind k) {
         case T_NOT: case T_BANG: case T_COMMA: case T_DOT: case T_ASSIGN:
         case T_PLUS_EQ: case T_MINUS_EQ: case T_STAR_EQ: case T_SLASH_EQ:
         case T_PERCENT_EQ: case T_ARROW: case T_QUESTION: case T_COLON:
-        case T_DOTDOT: case T_DOTDOTDOT: case T_IN:
+        case T_DOTDOT: case T_DOTDOTDOT: case T_IN: case T_PIPE: case T_IS:
+        case T_THEN: case T_ELSE:
             return 1;
         default:
             return 0;
@@ -82,6 +105,8 @@ static void emit_newline(Lexer *lx) {
         break;
     }
     if (j + 1 < lx->len && lx->src[j] == '.' && lx->src[j + 1] != '.') return;
+    /* 次の行が "->" で始まるならパイプラインの続き */
+    if (j + 1 < lx->len && lx->src[j] == '-' && lx->src[j + 1] == '>') return;
     add(lx, T_NEWLINE);
 }
 
@@ -98,6 +123,7 @@ static const struct { const char *word; const char *quoted; TokKind kind; } keyw
     KW("false", T_FALSE), KW("nil", T_NIL), KW("and", T_AND), KW("or", T_OR),
     KW("not", T_NOT), KW("match", T_MATCH), KW("try", T_TRY), KW("catch", T_CATCH),
     KW("finally", T_FINALLY), KW("throw", T_THROW), KW("import", T_IMPORT),
+    KW("repeat", T_REPEAT), KW("is", T_IS), KW("then", T_THEN),
     {NULL, NULL, T_EOF}
 };
 #undef KW
@@ -122,7 +148,7 @@ static void encode_utf8(StrBuf *sb, unsigned long cp) {
 
 /* バックスラッシュの直後（lx->i は '\\' の次）を読んで sb に追加 */
 static void read_escape(Lexer *lx, StrBuf *sb) {
-    if (lx->i >= lx->len) syntax_error(lx->line, NULL, "文字列リテラルが閉じられていません");
+    if (lx->i >= lx->len) lex_error_at(lx, lx->line, lx->i, "文字列リテラルが閉じられていません");
     char c = lx->src[lx->i++];
     switch (c) {
         case 'n': sb_append(sb, "\n", 1); break;
@@ -138,7 +164,7 @@ static void read_escape(Lexer *lx, StrBuf *sb) {
         case '\n': lx->line++; break; /* 行継続 */
         case 'u': {
             if (lx->i >= lx->len || lx->src[lx->i] != '{')
-                syntax_error(lx->line, NULL, "\\u の後には {16進数} が必要です");
+                lex_error_at(lx, lx->line, lx->i, "\\u の後には {16進数} が必要です");
             lx->i++;
             unsigned long cp = 0;
             int digits = 0;
@@ -148,13 +174,13 @@ static void read_escape(Lexer *lx, StrBuf *sb) {
                 digits++;
             }
             if (!digits || lx->i >= lx->len || lx->src[lx->i] != '}' || cp > 0x10FFFF)
-                syntax_error(lx->line, NULL, "不正な \\u エスケープです");
+                lex_error_at(lx, lx->line, lx->i, "不正な \\u エスケープです");
             lx->i++;
             encode_utf8(sb, cp);
             break;
         }
         default:
-            syntax_error(lx->line, NULL, "不明なエスケープシーケンス '\\%c'", c);
+            lex_error_at(lx, lx->line, lx->i, "不明なエスケープシーケンス '\\%c'", c);
     }
 }
 
@@ -173,7 +199,7 @@ static void lex_dq_string(Lexer *lx) {
     StrBuf cur;
     sb_init(&cur);
     for (;;) {
-        if (lx->i >= lx->len) syntax_error(start_line, NULL, "文字列リテラルが閉じられていません");
+        if (lx->i >= lx->len) lex_error_at(lx, start_line, lx->tok_start, "文字列リテラルが閉じられていません");
         char c = lx->src[lx->i];
         if (c == '"') { lx->i++; break; }
         if (c == '\\') { lx->i++; read_escape(lx, &cur); continue; }
@@ -198,7 +224,7 @@ static void lex_dq_string(Lexer *lx) {
                 }
                 lx->i++;
             }
-            if (lx->i >= lx->len) syntax_error(expr_line, NULL, "文字列中の '{' が閉じられていません");
+            if (lx->i >= lx->len) lex_error_at(lx, expr_line, s - 1, "文字列中の '{' が閉じられていません");
             size_t e = lx->i;
             lx->i++; /* '}' */
             if (nparts + 2 > cap) {
@@ -206,12 +232,12 @@ static void lex_dq_string(Lexer *lx) {
                 parts = xrealloc(parts, sizeof(InterpPart) * cap);
             }
             if (cur.len > 0) {
-                InterpPart p = {0, NULL, 0, start_line};
+                InterpPart p = {0, NULL, 0, start_line, 0};
                 p.text = sb_take(&cur, &p.len);
                 parts[nparts++] = p;
                 sb_init(&cur);
             }
-            InterpPart p = {1, NULL, e - s, expr_line};
+            InterpPart p = {1, NULL, e - s, expr_line, col_at(lx, s)};
             p.text = xmalloc(e - s + 1);
             memcpy(p.text, lx->src + s, e - s);
             p.text[e - s] = '\0';
@@ -229,7 +255,7 @@ static void lex_dq_string(Lexer *lx) {
     }
     if (cur.len > 0) {
         if (nparts + 1 > cap) parts = xrealloc(parts, sizeof(InterpPart) * (cap + 1));
-        InterpPart p = {0, NULL, 0, start_line};
+        InterpPart p = {0, NULL, 0, start_line, 0};
         p.text = sb_take(&cur, &p.len);
         parts[nparts++] = p;
     } else {
@@ -248,7 +274,7 @@ static void lex_sq_string(Lexer *lx) {
     StrBuf sb;
     sb_init(&sb);
     for (;;) {
-        if (lx->i >= lx->len) syntax_error(start_line, NULL, "文字列リテラルが閉じられていません");
+        if (lx->i >= lx->len) lex_error_at(lx, start_line, lx->tok_start, "文字列リテラルが閉じられていません");
         char c = lx->src[lx->i];
         if (c == '\'') { lx->i++; break; }
         if (c == '\\' && lx->i + 1 < lx->len && (lx->src[lx->i + 1] == '\'' || lx->src[lx->i + 1] == '\\')) {
@@ -267,7 +293,7 @@ static void lex_sq_string(Lexer *lx) {
 
 /* 数値リテラル用のバッファに1文字追加する。長すぎる場合は切り捨てずにエラーにする */
 static void num_put(Lexer *lx, char *buf, size_t size, size_t *b, char c) {
-    if (*b >= size - 1) syntax_error(lx->line, NULL, "数値リテラルが長すぎます");
+    if (*b >= size - 1) lex_error_at(lx, lx->line, lx->i, "数値リテラルが長すぎます");
     buf[(*b)++] = c;
 }
 
@@ -294,7 +320,7 @@ static void lex_number(Lexer *lx) {
             digits++;
             i++;
         }
-        if (!digits) syntax_error(lx->line, NULL, "不正な数値リテラルです");
+        if (!digits) lex_error_at(lx, lx->line, lx->i, "不正な数値リテラルです");
     } else {
         while (i < lx->len && (isdigit((unsigned char)s[i]) || s[i] == '_')) {
             if (s[i] != '_') num_put(lx, buf, sizeof(buf), &b, s[i]);
@@ -320,22 +346,24 @@ static void lex_number(Lexer *lx) {
         val = strtod(buf, NULL);
     }
     if (i < lx->len && is_ident_start((unsigned char)s[i]))
-        syntax_error(lx->line, NULL, "数値の直後に識別子を続けることはできません");
+        lex_error_at(lx, lx->line, i, "数値の直後に識別子を続けることはできません");
     lx->i = i;
     Token t = make_tok(T_NUM, lx->line);
     t.num = val;
     push_tok(lx, t);
 }
 
-TokenList lex(const char *src, size_t len, int first_line) {
+TokenList lex(const char *src, size_t len, int first_line, int first_col) {
     Lexer lx;
     memset(&lx, 0, sizeof(lx));
     lx.src = src;
     lx.len = len;
     lx.line = first_line;
+    lx.first_col = first_col > 0 ? first_col : 1;
 
     while (lx.i < lx.len) {
         unsigned char c = (unsigned char)src[lx.i];
+        lx.tok_start = lx.i;
         if (c == '\n') {
             lx.i++;
             emit_newline(&lx);
@@ -357,7 +385,7 @@ TokenList lex(const char *src, size_t len, int first_line) {
                     if (src[lx.i] == '\n') lx.line++;
                     lx.i++;
                 }
-                if (lx.i + 1 >= lx.len) syntax_error(start_line, NULL, "ブロックコメント #[ が閉じられていません");
+                if (lx.i + 1 >= lx.len) lex_error_at(&lx, start_line, lx.tok_start, "ブロックコメント #[ が閉じられていません");
                 lx.i += 2;
                 continue;
             }
@@ -432,7 +460,9 @@ TokenList lex(const char *src, size_t len, int first_line) {
                 if (c1 == '=') { k = T_PLUS_EQ; w = 2; } else k = T_PLUS;
                 break;
             case '-':
-                if (c1 == '=') { k = T_MINUS_EQ; w = 2; } else k = T_MINUS;
+                if (c1 == '=') { k = T_MINUS_EQ; w = 2; }
+                else if (c1 == '>') { k = T_PIPE; w = 2; }
+                else k = T_MINUS;
                 break;
             case '*':
                 if (c1 == '*') { k = T_POW; w = 2; }
@@ -457,12 +487,13 @@ TokenList lex(const char *src, size_t len, int first_line) {
                 break;
         }
         if (k == T_EOF) {
-            if (c >= 0x20 && c < 0x7f) syntax_error(lx.line, NULL, "不正な文字 '%c'", c);
-            syntax_error(lx.line, NULL, "不正な文字 (0x%02X)", c);
+            if (c >= 0x20 && c < 0x7f) lex_error_at(&lx, lx.line, lx.i, "不正な文字 '%c'", c);
+            lex_error_at(&lx, lx.line, lx.i, "不正な文字 (0x%02X)", c);
         }
         add(&lx, k);
         lx.i += w;
     }
+    lx.tok_start = lx.len;
     emit_newline(&lx);
     add(&lx, T_EOF);
     free(lx.nest);
@@ -512,6 +543,7 @@ const char *tok_kind_name(TokKind k) {
         case T_OROR: return "'||'";
         case T_DOTDOT: return "'..'";
         case T_DOTDOTDOT: return "'...'";
+        case T_PIPE: return "'->'";
         default: break;
     }
     for (int i = 0; keywords[i].word; i++)

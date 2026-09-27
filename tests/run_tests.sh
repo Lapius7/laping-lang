@@ -19,8 +19,17 @@ for t in "$DIR"/*.lp; do
     [ -f "$expected" ] || continue
     want_status=0
     [ -f "$DIR/$name.exit" ] && want_status=$(cat "$DIR/$name.exit")
-    (cd "$DIR" && "$LAPING" "$name.lp" > "$actual" 2>&1 < /dev/null)
-    status=$?
+    case "$name" in
+        *_test)
+            # test ブロックは laping test で実行する（所要時間は毎回変わるので消す）
+            (cd "$DIR" && "$LAPING" test "$name.lp" 2>&1 < /dev/null) | sed 's/ ([0-9.]* 秒)$//' > "$actual"
+            status=$(cd "$DIR" && "$LAPING" test "$name.lp" > /dev/null 2>&1 < /dev/null; echo $?)
+            ;;
+        *)
+            (cd "$DIR" && "$LAPING" "$name.lp" > "$actual" 2>&1 < /dev/null)
+            status=$?
+            ;;
+    esac
     if [ "$status" -ne "$want_status" ]; then
         fail=$((fail + 1))
         echo "FAIL: $name (終了コード $status、期待値 $want_status)"

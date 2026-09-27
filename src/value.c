@@ -438,6 +438,7 @@ MapObj *map_new(void) {
     m->count = m->live = m->cap = 0;
     m->index = NULL;
     m->index_cap = 0;
+    m->tag = NULL;
     return m;
 }
 
@@ -655,6 +656,7 @@ static int equal_depth(Value a, Value b, int depth) {
         case VAL_MAP: {
             MapObj *x = AS_MAP(a), *y = AS_MAP(b);
             if (x == y) return 1;
+            if (x->tag != y->tag) return 0;
             if (x->live != y->live) return 0;
             for (size_t i = 0; i < x->count; i++) {
                 if (x->entries[i].deleted) continue;
@@ -680,6 +682,11 @@ int is_truthy(Value v) {
         case VAL_MAP: return AS_MAP(v)->live > 0;
         default: return 1;
     }
+}
+
+const char *value_type_name(Value v) {
+    if (v.type == VAL_MAP && AS_MAP(v)->tag) return AS_MAP(v)->tag;
+    return type_name(v);
 }
 
 const char *type_name(Value v) {
@@ -755,6 +762,21 @@ static void to_sb_depth(StrBuf *sb, Value v, int repr, int depth) {
         case VAL_MAP: {
             MapObj *m = AS_MAP(v);
             int first = 1;
+            if (m->tag) {
+                /* record の値は Point(x: 1, y: 2) と表示する */
+                sb_appendc(sb, m->tag);
+                sb_append(sb, "(", 1);
+                for (size_t i = 0; i < m->count; i++) {
+                    if (m->entries[i].deleted) continue;
+                    if (!first) sb_append(sb, ", ", 2);
+                    first = 0;
+                    value_to_sb(sb, m->entries[i].key, 0);
+                    sb_append(sb, ": ", 2);
+                    to_sb_depth(sb, m->entries[i].val, 1, depth + 1);
+                }
+                sb_append(sb, ")", 1);
+                break;
+            }
             sb_append(sb, "{", 1);
             for (size_t i = 0; i < m->count; i++) {
                 if (m->entries[i].deleted) continue;
