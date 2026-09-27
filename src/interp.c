@@ -1324,7 +1324,9 @@ static ExecStatus exec_repeat(Node *s) {
     SET_POS(s);
     if (!IS_NUM(c) || c.as.n < 0 || c.as.n != floor(c.as.n))
         rt_error("repeat の回数には 0 以上の整数が必要です（%s が渡されました）", type_name(c));
-    for (double i = 0; i < c.as.n; i++) {
+    if (c.as.n > 9007199254740992.0) rt_error("repeat の回数が大きすぎます");
+    long long times = (long long)c.as.n;
+    for (long long i = 0; i < times; i++) {
         ExecStatus st = exec_stmt(s->b);
         if (st == EX_BREAK) break;
         if (st == EX_RETURN) return st;
