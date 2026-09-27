@@ -25,7 +25,7 @@ static size_t roots_top = 0, roots_cap = 0;
 static Obj **gray = NULL;
 static size_t gray_count = 0, gray_cap = 0;
 
-static void *xmalloc(size_t n) {
+void *xmalloc(size_t n) {
     void *p = malloc(n ? n : 1);
     if (!p) {
         fprintf(stderr, "Laping: メモリが不足しました\n");
@@ -34,7 +34,16 @@ static void *xmalloc(size_t n) {
     return p;
 }
 
-static void *xrealloc(void *p, size_t n) {
+void *xcalloc(size_t count, size_t size) {
+    void *p = calloc(count ? count : 1, size ? size : 1);
+    if (!p) {
+        fprintf(stderr, "Laping: メモリが不足しました\n");
+        exit(1);
+    }
+    return p;
+}
+
+void *xrealloc(void *p, size_t n) {
     void *q = realloc(p, n ? n : 1);
     if (!q) {
         fprintf(stderr, "Laping: メモリが不足しました\n");
@@ -316,7 +325,7 @@ static size_t intern_cap = 0, intern_count = 0;
 const char *intern(const char *s, size_t len) {
     if (intern_count * 2 >= intern_cap) {
         size_t nc = intern_cap ? intern_cap * 2 : 512;
-        const char **nt = calloc(nc, sizeof(char *));
+        const char **nt = xcalloc(nc, sizeof(char *));
         for (size_t i = 0; i < intern_cap; i++) {
             if (!intern_tab[i]) continue;
             size_t j = hash_bytes(intern_tab[i], strlen(intern_tab[i])) & (nc - 1);
@@ -554,7 +563,7 @@ EnvObj *env_new(EnvObj *parent) {
     e->parent = parent;
     e->cap = 8;
     e->count = 0;
-    e->names = calloc(e->cap, sizeof(char *));
+    e->names = xcalloc(e->cap, sizeof(char *));
     e->vals = xmalloc(sizeof(Value) * e->cap);
     bytes_allocated += e->cap * (sizeof(Value) + sizeof(char *));
     return e;
@@ -593,8 +602,8 @@ void env_define(EnvObj *e, const char *name, Value v) {
         return;
     }
     if ((e->count + 1) * 2 > e->cap) {
-        size_t nc = e->cap * 2;
-        const char **nn = calloc(nc, sizeof(char *));
+        size_t nc = e->cap ? e->cap * 2 : 8;
+        const char **nn = xcalloc(nc, sizeof(char *));
         Value *nv = xmalloc(sizeof(Value) * nc);
         for (size_t i = 0; i < e->cap; i++) {
             if (!e->names[i]) continue;
