@@ -26,7 +26,7 @@ typedef struct {
 static void push_tok(Lexer *lx, Token t) {
     if (lx->out.count >= lx->out.cap) {
         lx->out.cap = lx->out.cap ? lx->out.cap * 2 : 256;
-        lx->out.toks = realloc(lx->out.toks, sizeof(Token) * lx->out.cap);
+        lx->out.toks = xrealloc(lx->out.toks, sizeof(Token) * lx->out.cap);
     }
     lx->out.toks[lx->out.count++] = t;
 }
@@ -44,7 +44,7 @@ static void add(Lexer *lx, TokKind k) { push_tok(lx, make_tok(k, lx->line)); }
 static void nest_push(Lexer *lx, char c) {
     if (lx->nest_len >= lx->nest_cap) {
         lx->nest_cap = lx->nest_cap ? lx->nest_cap * 2 : 32;
-        lx->nest = realloc(lx->nest, lx->nest_cap);
+        lx->nest = xrealloc(lx->nest, lx->nest_cap);
     }
     lx->nest[lx->nest_len++] = c;
 }
@@ -203,7 +203,7 @@ static void lex_dq_string(Lexer *lx) {
             lx->i++; /* '}' */
             if (nparts + 2 > cap) {
                 cap = cap ? cap * 2 : 8;
-                parts = realloc(parts, sizeof(InterpPart) * cap);
+                parts = xrealloc(parts, sizeof(InterpPart) * cap);
             }
             if (cur.len > 0) {
                 InterpPart p = {0, NULL, 0, start_line};
@@ -212,7 +212,7 @@ static void lex_dq_string(Lexer *lx) {
                 sb_init(&cur);
             }
             InterpPart p = {1, NULL, e - s, expr_line};
-            p.text = malloc(e - s + 1);
+            p.text = xmalloc(e - s + 1);
             memcpy(p.text, lx->src + s, e - s);
             p.text[e - s] = '\0';
             parts[nparts++] = p;
@@ -228,7 +228,7 @@ static void lex_dq_string(Lexer *lx) {
         return;
     }
     if (cur.len > 0) {
-        if (nparts + 1 > cap) parts = realloc(parts, sizeof(InterpPart) * (cap + 1));
+        if (nparts + 1 > cap) parts = xrealloc(parts, sizeof(InterpPart) * (cap + 1));
         InterpPart p = {0, NULL, 0, start_line};
         p.text = sb_take(&cur, &p.len);
         parts[nparts++] = p;

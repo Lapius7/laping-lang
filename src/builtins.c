@@ -27,7 +27,7 @@
 
 static const char *cur_fn = "";
 
-static void arg_error(int i, const char *want, Value got) {
+LP_NORETURN static void arg_error(int i, const char *want, Value got) {
     rt_error("%s() の第%d引数には %s が必要です（%s が渡されました）", cur_fn, i + 1, want, type_name(got));
 }
 
@@ -453,7 +453,7 @@ B(reverse) {
     UNUSED;
     if (IS_STR(argv[0])) {
         StrObj *s = AS_STR(argv[0]);
-        char *buf = malloc(s->len + 1);
+        char *buf = xmalloc(s->len + 1);
         size_t off = 0;
         while (off < s->len) {
             size_t w = utf8_char_len((unsigned char)s->chars[off]);
@@ -489,8 +489,8 @@ static void merge_sort(size_t *idx, size_t *tmp, size_t n, Value *vals) {
 
 static Value sorted_by_keys(ListObj *src, ListObj *keys) {
     size_t n = src->count;
-    size_t *idx = malloc(sizeof(size_t) * (n ? n : 1));
-    size_t *tmp = malloc(sizeof(size_t) * (n ? n : 1));
+    size_t *idx = xmalloc(sizeof(size_t) * (n ? n : 1));
+    size_t *tmp = xmalloc(sizeof(size_t) * (n ? n : 1));
     for (size_t i = 0; i < n; i++) idx[i] = i;
     merge_sort(idx, tmp, n, keys->items);
     ListObj *r = list_new(n);

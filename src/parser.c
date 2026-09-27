@@ -74,7 +74,7 @@ static int peek_past_newlines(TokKind k) {
 }
 
 static Node *new_node(NodeKind kind, int line) {
-    Node *n = calloc(1, sizeof(Node));
+    Node *n = xcalloc(1, sizeof(Node));
     n->kind = kind;
     n->line = line;
     n->file = P.file;
@@ -84,7 +84,7 @@ static Node *new_node(NodeKind kind, int line) {
 static void nl_push(NodeList *l, Node *n) {
     if (l->count >= l->cap) {
         l->cap = l->cap ? l->cap * 2 : 4;
-        l->items = realloc(l->items, sizeof(Node *) * l->cap);
+        l->items = xrealloc(l->items, sizeof(Node *) * l->cap);
     }
     l->items[l->count++] = n;
 }
@@ -149,8 +149,8 @@ static Node *parse_function_rest(int line, const char *name) {
         Token *id = expect(T_IDENT, "引数名として ");
         if (fn->nparams >= cap) {
             cap = cap ? cap * 2 : 4;
-            fn->params = realloc(fn->params, sizeof(char *) * cap);
-            fn->defaults = realloc(fn->defaults, sizeof(Node *) * cap);
+            fn->params = xrealloc(fn->params, sizeof(char *) * cap);
+            fn->defaults = xrealloc(fn->defaults, sizeof(Node *) * cap);
         }
         for (int i = 0; i < fn->nparams; i++)
             if (fn->params[i] == id->str) syntax_error(id->line, P.file, "引数名 '%s' が重複しています", id->str);
@@ -552,7 +552,7 @@ static Node *parse_simple(void) {
                 Token *id = expect(T_IDENT, "let の後に変数名として ");
                 if (n->nparams >= cap) {
                     cap = cap ? cap * 2 : 4;
-                    n->params = realloc(n->params, sizeof(char *) * cap);
+                    n->params = xrealloc(n->params, sizeof(char *) * cap);
                 }
                 n->params[n->nparams++] = id->str;
             } while (accept(T_COMMA));
@@ -675,7 +675,7 @@ static Node *parse_statement(void) {
         case T_FOR: {
             advance();
             Node *n = new_node(N_FOR, t->line);
-            n->params = malloc(sizeof(char *) * 2);
+            n->params = xmalloc(sizeof(char *) * 2);
             n->params[n->nparams++] = expect(T_IDENT, "for の後に変数名として ")->str;
             if (accept(T_COMMA)) n->params[n->nparams++] = expect(T_IDENT, "for の2つ目の変数名として ")->str;
             expect(T_IN, "for の変数の後に ");

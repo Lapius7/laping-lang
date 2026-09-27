@@ -179,7 +179,7 @@ static void set_var(const char *name, Value v) {
 static void push_env(EnvObj *e) {
     if (env_depth >= env_cap) {
         env_cap = env_cap ? env_cap * 2 : 64;
-        env_stack = realloc(env_stack, sizeof(EnvObj *) * env_cap);
+        env_stack = xrealloc(env_stack, sizeof(EnvObj *) * env_cap);
     }
     env_stack[env_depth++] = cur_env;
     cur_env = e;
@@ -462,7 +462,7 @@ static void push_frame(const char *name) {
     if (call_depth >= MAX_CALL_DEPTH) rt_error("関数呼び出しが深すぎます（再帰が止まっていない可能性があります）");
     if (call_depth >= frames_cap) {
         frames_cap = frames_cap ? frames_cap * 2 : 64;
-        frames = realloc(frames, sizeof(CallFrame) * frames_cap);
+        frames = xrealloc(frames, sizeof(CallFrame) * frames_cap);
     }
     frames[call_depth].name = name;
     frames[call_depth].line = cur_line;
@@ -551,7 +551,7 @@ static Value eval_call_args(Node *call, Value callee, Value *self) {
     for (int i = 0; i < call->list.count; i++) root_push(eval(call->list.items[i]));
 
     Value small[8];
-    Value *argv = argc <= 8 ? small : malloc(sizeof(Value) * (size_t)argc);
+    Value *argv = argc <= 8 ? small : xmalloc(sizeof(Value) * (size_t)argc);
     if (self) argv[0] = *self;
     /* root スタックは再確保されうるので、評価後に値だけコピーする */
     for (int i = 0; i < call->list.count; i++) argv[i + extra] = root_get(base + 1 + (size_t)extra + (size_t)i);
@@ -1006,7 +1006,7 @@ static ExecStatus exec_import(Node *s) {
         sb_free(&path);
         rt_error("%s", msg);
     }
-    imported = realloc(imported, sizeof(char *) * (size_t)(imported_count + 1));
+    imported = xrealloc(imported, sizeof(char *) * (size_t)(imported_count + 1));
     imported[imported_count++] = path.buf; /* 所有権を移す（ファイル名として使い続ける） */
 
     Node *prog = parse_program(src, len, path.buf);
@@ -1138,7 +1138,7 @@ int run_file(const char *path) {
         return 1;
     }
     main_file = path;
-    imported = realloc(imported, sizeof(char *) * (size_t)(imported_count + 1));
+    imported = xrealloc(imported, sizeof(char *) * (size_t)(imported_count + 1));
     imported[imported_count++] = (char *)path;
     Node *prog = parse_program(src, len, path);
     free(src);

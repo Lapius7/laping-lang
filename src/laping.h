@@ -17,6 +17,13 @@
 
 #define LAPING_VERSION "v2.0.0"
 
+/* 呼び出し元に戻らない関数（エラー送出など）の印。静的解析器とコンパイラに伝える */
+#if defined(__GNUC__) || defined(__clang__)
+#define LP_NORETURN __attribute__((noreturn))
+#else
+#define LP_NORETURN
+#endif
+
 /* ===================================================================== */
 /*  値                                                                    */
 /* ===================================================================== */
@@ -144,6 +151,11 @@ Value v_nil(void);
 Value v_bool(int b);
 Value v_num(double n);
 Value v_obj(ValueType t, void *o);
+
+/* ---- メモリ確保（失敗したらメッセージを出して終了する） ---- */
+void *xmalloc(size_t n);
+void *xcalloc(size_t count, size_t size);
+void *xrealloc(void *p, size_t n);
 
 /* ---- GC ---- */
 void gc_init(void);
@@ -334,9 +346,9 @@ extern Value thrown_value;
 extern int thrown_line;
 extern const char *thrown_file;
 
-void rt_error(const char *fmt, ...);
-void syntax_error(int line, const char *file, const char *fmt, ...);
-void throw_value(Value v);
+LP_NORETURN void rt_error(const char *fmt, ...);
+LP_NORETURN void syntax_error(int line, const char *file, const char *fmt, ...);
+LP_NORETURN void throw_value(Value v);
 void report_error(Value v, int line, const char *file);
 char *read_whole_file(const char *path, size_t *out_len);
 
