@@ -28,6 +28,32 @@ test "売上を計算できる" {
 }
 ```
 
+## 🤖 AI に Laping のコードを書かせるとき
+
+Laping は新しい言語なので、AI（ChatGPT・Claude・Gemini など）はそのままでは Python や JavaScript の書き方を混ぜてしまいます。AI 向けの仕様書 [docs/AI_GUIDE.md](docs/AI_GUIDE.md) を用意しているので、次の指示文を会話の最初に貼り付けてください。
+
+````text
+これから Laping（拡張子 .lp）というプログラミング言語でコードを書いてください。
+Laping は Python や JavaScript に似ていますが別の言語です。推測で他の言語の書き方を使わず、
+次の仕様書に書かれている構文と組み込み関数だけを使ってください。
+https://raw.githubusercontent.com/Lapius7/laping-lang/main/docs/AI_GUIDE.md
+
+仕様書を読めない場合は、少なくとも次を守ってください。
+- 関数は fn f(a, b) { return a + b } または fn f(a, b) => a + b。無名関数は fn x => x * 2
+- ブロック形式の関数は最後の式を自動では返さない。値を返すところには return を書く
+- if / for / while の条件に括弧もコロンも付けない: if x > 0 { ... }、for i in 0...n { ... }（... は終端を含まない、.. は含む）
+- nil / true / false（None・null・True は無い）。論理演算は and / or / not
+- "a" + 1 はエラー。文字列には "{x}" で埋め込む（書式は "{x:.2}"、"{x:>5}"）。文字の { は \{ と書く
+- 無いかもしれない値は 値 else 既定値（例: m.key else 0）。条件で値を選ぶときは 条件 then a else b
+- データは -> でつなぐ: xs -> filter(fn x => x > 0) -> map(fn x => x * 2) -> sum()（x -> f(a) は f(x, a)）
+- リストへの追加は xs.push(x)、長さは len(xs)。クラスは無いので record Point(x, y) と fn Point.dist(p) => ... を使う
+- 関数の中のローカル変数は let x = 1。全部大文字の名前は定数で再代入できない
+- 後置修飾子が使える: print(x) if x > 0 / print(x) for x in xs / write("★") repeat 3
+- 予約語 repeat is then match などは変数名にしない
+````
+
+AI が Web を読めない場合は、[docs/AI_GUIDE.md](docs/AI_GUIDE.md) の中身をそのまま貼り付けても使えます。ルートの [`llms.txt`](llms.txt) にも、AI 向けの文書の場所をまとめています。
+
 ## 特徴
 
 - **読んだ順に理解できる**: `->` パイプライン、後置修飾子（`stmt if cond` / `for` / `repeat`）、`then` / `else` による値の選択
@@ -37,7 +63,7 @@ test "売上を計算できる" {
 - **見やすい CLI**: 該当行と `^` を示す色付きのエラー表示、コマンド付きの対話モード、`laping test` / `check` / `new` / `doc`
 - 関数・クロージャ・`fn x => x * 2`・デフォルト引数・可変長引数、リスト・マップ・範囲・内包表記、`match`（式としても使える）、`try` / `catch` / `finally`
 - 文字列への式の埋め込みと書式（`"合計 {a + b:>8} 円"`）、UTF-8 対応（日本語の文字数・添字・変数名、全角文字の表示幅）
-- 表・枠・進捗バー・色などの画面表示、JSON、データ集計を含む 130 以上の組み込み関数（`laping doc` で一覧）
+- 表・枠・進捗バー・色などの画面表示、JSON、データ集計を含む 120 以上の組み込み関数（`laping doc` で一覧）
 - 暗黙の型変換なし、マーク&スイープ GC、単一バイナリ、`laping update` で自動更新
 
 ## 設計方針 — なぜこの書き方なのか
@@ -972,6 +998,14 @@ make test
 
 ```sh
 LAPING_GC_STRESS=1 tests/run_tests.sh ./laping
+```
+
+### AI 向け仕様書の更新
+
+組み込み関数を追加・変更したら、[docs/AI_GUIDE.md](docs/AI_GUIDE.md) の一覧を `src/builtins.c` の関数表から作り直してください。CI でも一覧が最新かを確認しています。
+
+```sh
+python3 tools/update_ai_guide.py
 ```
 
 ### 新バージョンのリリース方法
