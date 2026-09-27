@@ -6,6 +6,7 @@
  *   value.c    値・ヒープオブジェクト・GC・文字列/リスト/マップの実装
  *   interp.c   AST を直接たどって実行する評価器（例外・スコープ・関数呼び出し）
  *   builtins.c 組み込み関数
+ *   ui.c       端末表示（色・文字幅・エラー表示）
  *   main.c     コマンドライン / REPL
  */
 #ifndef LAPING_H
@@ -15,7 +16,7 @@
 #include <stdint.h>
 #include <setjmp.h>
 
-#define LAPING_VERSION "v2.0.0"
+#define LAPING_VERSION "v2.1.0"
 
 /* 呼び出し元に戻らない関数（エラー送出など）の印。静的解析器とコンパイラに伝える */
 #if defined(__GNUC__) || defined(__clang__)
@@ -99,6 +100,7 @@ struct MapObj {
     size_t cap;
     int32_t *index; /* entries へのインデックス（オープンアドレス法） */
     size_t index_cap;
+    const char *tag; /* record で作った値なら型名（インターン済み）、それ以外は NULL */
 };
 
 struct FuncObj {
@@ -129,7 +131,10 @@ struct Builtin {
     const char *name;
     BuiltinFn fn;
     int min_args;
-    int max_args; /* -1 で可変長 */
+    int max_args;        /* -1 で可変長 */
+    const char *category; /* laping doc での分類 */
+    const char *sig;      /* 使い方の例 */
+    const char *desc;     /* 一行説明 */
 };
 
 #define AS_STR(v)   ((StrObj *)(v).as.o)
@@ -218,6 +223,7 @@ void env_define(EnvObj *e, const char *name, Value v);
 int values_equal(Value a, Value b);
 int is_truthy(Value v);
 const char *type_name(Value v);
+const char *value_type_name(Value v); /* record なら型名、それ以外は type_name */
 void value_to_sb(StrBuf *sb, Value v, int repr);
 Value value_to_str(Value v); /* print と同じ表示形式の文字列 */
 void format_number(char *buf, size_t size, double d);
@@ -237,13 +243,15 @@ typedef enum {
     T_IF, T_ELIF, T_ELSE, T_UNLESS, T_WHILE, T_UNTIL, T_FOR, T_IN, T_LOOP,
     T_BREAK, T_CONTINUE, T_RETURN, T_FN, T_LET, T_TRUE, T_FALSE, T_NIL,
     T_AND, T_OR, T_NOT, T_MATCH, T_TRY, T_CATCH, T_FINALLY, T_THROW, T_IMPORT,
+    T_REPEAT, T_IS, T_THEN,
     /* 記号 */
     T_LPAREN, T_RPAREN, T_LBRACKET, T_RBRACKET, T_LBRACE, T_RBRACE,
     T_COMMA, T_DOT, T_COLON, T_SEMI, T_QUESTION, T_ARROW,
     T_ASSIGN, T_PLUS_EQ, T_MINUS_EQ, T_STAR_EQ, T_SLASH_EQ, T_PERCENT_EQ,
     T_PLUS, T_MINUS, T_STAR, T_SLASH, T_SLASHSLASH, T_PERCENT, T_POW,
     T_EQ, T_NE, T_LT, T_GT, T_LE, T_GE, T_BANG, T_ANDAND, T_OROR,
-    T_DOTDOT, T_DOTDOTDOT
+    T_DOTDOT, T_DOTDOTDOT,
+    T_PIPE   /* -> （パイプライン） */
 } TokKind;
 
 typedef struct {
@@ -251,11 +259,13 @@ typedef struct {
     char *text;
     size_t len;
     int line;
+    int col;
 } InterpPart;
 
 typedef struct {
     TokKind kind;
     int line;
+    int col; /* 1 始まりのバイト位置 */
     double num;
     char *str; /* 識別子名 / 文字列の中身（エスケープ処理済み） */
     size_t len;
@@ -269,7 +279,7 @@ typedef struct {
     int cap;
 } TokenList;
 
-TokenList lex(const char *src, size_t len, int first_line);
+TokenList lex(const char *src, size_t len, int first_line, int first_col);
 const char *tok_kind_name(TokKind k);
 
 /* ===================================================================== */
@@ -280,11 +290,12 @@ typedef enum {
     /* 式 */
     N_NUM, N_STR, N_INTERP, N_BOOL, N_NIL, N_IDENT, N_LIST, N_MAP, N_FUNC,
     N_UNARY, N_BINARY, N_AND, N_OR, N_TERNARY, N_CALL, N_METHOD, N_INDEX,
-    N_FIELD, N_RANGE,
+    N_FIELD, N_RANGE, N_FALLBACK, N_CMPCHAIN, N_COMPREHENSION, N_MATCH_EXPR,
+    N_IS,
     /* 文 */
     N_BLOCK, N_EXPR_STMT, N_ASSIGN, N_LET, N_COMPOUND, N_IF, N_WHILE, N_FOR,
     N_LOOP, N_MATCH, N_MATCH_ARM, N_RETURN, N_BREAK, N_CONTINUE, N_THROW,
-    N_TRY, N_FNDECL, N_IMPORT
+    N_TRY, N_FNDECL, N_IMPORT, N_RECORD, N_REPEAT, N_TEST, N_EXPECT
 } NodeKind;
 
 typedef struct {
@@ -296,10 +307,12 @@ typedef struct {
 struct Node {
     NodeKind kind;
     int line;
+    int col;            /* 0 なら不明 */
     const char *file;
     int op;             /* 演算子のトークン種別 / 各種フラグ */
     double num;
     const char *name;   /* 識別子（インターン済み） */
+    const char *owner;  /* fn Type.method の Type */
     Value constant;     /* 文字列定数 */
     Node *a, *b, *c, *d;
     NodeList list;      /* 子ノード列 */
@@ -311,18 +324,26 @@ struct Node {
 };
 
 Node *parse_program(const char *src, size_t len, const char *file);
+extern const char *cur_parse_file;
+extern int syntax_col; /* 次の syntax_error が指す列（0 なら不明） */
+
+/* 読み込んだソースを保存しておき、エラー表示で該当行を見せる */
+void source_register(const char *file, const char *src, size_t len);
+const char *source_line(const char *file, int line, size_t *len);
 
 /* ===================================================================== */
 /*  インタプリタ                                                          */
 /* ===================================================================== */
 
 extern int cur_line;
+extern int cur_col;
 extern const char *cur_file;
 extern const char *main_file;
 extern EnvObj *global_env;
 extern EnvObj *builtin_env;
 
 void interp_init(int argc, char **argv, int script_index);
+void interp_reset_globals(void); /* laping test でファイルごとに状態をリセットする */
 void run_program(Node *program);
 int run_file(const char *path);
 Value call_value(Value callee, int argc, Value *argv);
@@ -344,21 +365,64 @@ void try_pop(TryFrame *tf);
 void try_restore(TryFrame *tf);
 extern Value thrown_value;
 extern int thrown_line;
+extern int thrown_col;
 extern const char *thrown_file;
+extern char thrown_hint[256];
+
+/* 次に送出するエラーに付ける「ヒント」（もしかして〜など） */
+void set_error_hint(const char *fmt, ...);
 
 LP_NORETURN void rt_error(const char *fmt, ...);
 LP_NORETURN void syntax_error(int line, const char *file, const char *fmt, ...);
 LP_NORETURN void throw_value(Value v);
 void report_error(Value v, int line, const char *file);
+void report_error_at(Value v, int line, int col, const char *file, const char *hint);
 char *read_whole_file(const char *path, size_t *out_len);
 
 void gc_mark_value(Value v);
 void gc_mark_obj(Obj *o);
 void interp_mark_roots(void);
 
+/* laping test */
+typedef struct {
+    int passed;
+    int failed;
+} TestStats;
+extern int test_mode;
+extern TestStats test_stats;
+
 /* 組み込み */
 void builtins_register(EnvObj *env);
 void builtins_set_args(int argc, char **argv, int start);
 const char *builtin_set_current(const char *name);
+const Builtin *builtin_table(void);       /* name が NULL の要素で終わる */
+const Builtin *builtin_find(const char *name);
+void print_builtin_doc(const Builtin *b);
+void print_builtin_list(void);
+int apply_format_spec(StrBuf *out, Value v, const char *spec, size_t speclen);
+
+/* ===================================================================== */
+/*  端末表示 (ui.c)                                                       */
+/* ===================================================================== */
+
+void ui_init(void);
+extern int ui_color_out; /* 標準出力に色を付けるか */
+extern int ui_color_err; /* 標準エラー出力に色を付けるか */
+
+/* ANSI エスケープ。色を使わない場合は空文字列を返す */
+const char *ui_c(int to_err, const char *code);
+#define UI_RESET "0"
+#define UI_BOLD "1"
+#define UI_DIM "2"
+#define UI_RED "31"
+#define UI_GREEN "32"
+#define UI_YELLOW "33"
+#define UI_BLUE "34"
+#define UI_MAGENTA "35"
+#define UI_CYAN "36"
+#define UI_GRAY "90"
+
+size_t display_width(const char *s, size_t len); /* 端末上の表示幅（全角は2） */
+void repr_colored(StrBuf *sb, Value v, int depth);  /* REPL 用の色付き表示 */
 
 #endif
