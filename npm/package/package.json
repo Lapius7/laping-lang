@@ -1,0 +1,33 @@
+{
+  "name": "@lapius/laping-lang",
+  "version": "0.0.0",
+  "description": "読んだ順に理解できて、間違いにすぐ気づけることを目指したプログラミング言語 Laping のインタプリタ（laping）",
+  "keywords": [
+    "language",
+    "interpreter",
+    "japanese",
+    "laping"
+  ],
+  "homepage": "https://github.com/Lapius7/laping-lang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lapius7/laping-lang.git"
+  },
+  "license": "MIT",
+  "bin": {
+    "laping": "bin/laping"
+  },
+  "files": [
+    "bin/laping"
+  ],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "optionalDependencies": {}
+}

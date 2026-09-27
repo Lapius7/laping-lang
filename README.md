@@ -89,6 +89,14 @@ Laping の構文は、他の言語の記号をそのまま借りるのではな�
 
 ## インストール
 
+### npm から（Linux / macOS / Windows）
+
+```bash
+npm i -g @lapius/laping-lang
+```
+
+OS と CPU に合ったビルド済みバイナリが入ります（Node.js 18 以降）。npm 版は自動更新しないので、`npm i -g @lapius/laping-lang` で更新してください。
+
 ### Releaseから取得（推奨）
 
 [Releases](https://github.com/Lapius7/laping-lang/releases) から OS に対応するファイルをダウンロードしてください。

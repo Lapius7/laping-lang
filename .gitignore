@@ -6,3 +6,4 @@ laping-windows-x86_64-setup.exe
 *.o
 *.old
 laping_asan
+/dist/

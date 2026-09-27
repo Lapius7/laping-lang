@@ -5,7 +5,9 @@
  *   laping run / check / test / new / doc / help / version / update
  */
 #include "laping.h"
+#ifndef LAPING_NPM
 #include "updater.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -519,7 +521,12 @@ static void real_main(void) {
     }
     const char *cmd = argv[1];
     if (is_command(cmd, "update") || is_command(cmd, "--update")) {
+#ifdef LAPING_NPM
+        /* npm 版は libcurl を使う自己更新を持たず、npm で更新する */
+        printf("npm i -g @lapius/laping-lang で最新版に更新できます\n");
+#else
         run_self_update(LAPING_VERSION);
+#endif
         return;
     }
     if (is_command(cmd, "version") || is_command(cmd, "--version") || is_command(cmd, "-v")) {
