@@ -1,0 +1,8 @@
+エラー: 未定義の変数 'numz'
+  --> error_display.lp:3:28
+  |
+3 |     return sum(nums) / len(numz)
+  |                            ^
+  ヒント: もしかして 'nums' ですか？
+  呼び出し履歴:
+    average() ← 5行目

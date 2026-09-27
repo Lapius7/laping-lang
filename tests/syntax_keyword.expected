@@ -1,1 +1,5 @@
-Laping: 構文エラー: for の変数の後に 'in' が必要ですが、'not' がありました (2行目)
+構文エラー: for の変数の後に 'in' が必要ですが、'not' がありました
+  --> syntax_keyword.lp:2:7
+  |
+2 | for x not in [1] {
+  |       ^
