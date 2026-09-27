@@ -520,6 +520,10 @@ Value call_value(Value callee, int argc, Value *argv) {
         env_define(env, d->params[fixed], v_obj(VAL_LIST, rest));
     }
 
+    /* 式本体（=>）の関数は exec_stmt を通らないので、ここも GC の安全点にする。
+     * 引数は呼び出し側で root 済み、新しい環境は環境スタックに積んである */
+    gc_maybe_collect();
+
     Value result;
     if (d->op == 1) {
         result = eval(d->a);
@@ -924,10 +928,14 @@ static ExecStatus exec_try(Node *s) {
     ExecStatus st = EX_NORMAL;
     Value exc;
     int pending = 0; /* finally の後で再送出する例外があるか */
+    int exc_line = 0;
+    const char *exc_file = NULL;
     size_t base = root_depth();
 
     if (run_protected(s->a, &st, &exc)) {
         root_push(exc);
+        exc_line = thrown_line;
+        exc_file = thrown_file;
         if (s->b) {
             if (s->name) env_define(cur_env, s->name, exc);
             if (s->c) {
@@ -935,6 +943,8 @@ static ExecStatus exec_try(Node *s) {
                 if (run_protected(s->b, &st, &exc2)) {
                     root_push(exc2);
                     exc = exc2;
+                    exc_line = thrown_line;
+                    exc_file = thrown_file;
                     pending = 1;
                 }
             } else {
@@ -955,7 +965,12 @@ static ExecStatus exec_try(Node *s) {
         ret_val = saved_ret;
     }
     root_restore(base);
-    if (pending) throw_value(exc);
+    if (pending) {
+        /* 例外が起きた元の位置で再送出する（finally の最後の行ではなく） */
+        cur_line = exc_line;
+        cur_file = exc_file;
+        throw_value(exc);
+    }
     return st;
 }
 

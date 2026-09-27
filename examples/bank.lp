@@ -15,6 +15,7 @@ fn Account(owner, balance = 0) {
             record("入金", amount)
         },
         withdraw: fn(amount) {
+            throw "出金額は正の数にしてください" if amount <= 0
             throw "残高不足です（残高 {balance} 円、出金 {amount} 円）" if amount > balance
             balance -= amount
             record("出金", amount)
