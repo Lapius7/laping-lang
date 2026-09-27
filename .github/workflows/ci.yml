@@ -5,11 +5,16 @@ on:
     branches: ["**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install libcurl
         run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
       - name: Build
@@ -25,7 +30,9 @@ jobs:
   build-windows:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install mingw-w64
         run: sudo apt-get update && sudo apt-get install -y mingw-w64
       - name: Download prebuilt libcurl (mingw, win64)

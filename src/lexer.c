@@ -88,16 +88,19 @@ static void emit_newline(Lexer *lx) {
 static int is_ident_start(unsigned char c) { return isalpha(c) || c == '_' || c >= 0x80; }
 static int is_ident_char(unsigned char c) { return isalnum(c) || c == '_' || c >= 0x80; }
 
-static const struct { const char *word; TokKind kind; } keywords[] = {
-    {"if", T_IF}, {"elif", T_ELIF}, {"else", T_ELSE}, {"unless", T_UNLESS},
-    {"while", T_WHILE}, {"until", T_UNTIL}, {"for", T_FOR}, {"in", T_IN},
-    {"loop", T_LOOP}, {"break", T_BREAK}, {"continue", T_CONTINUE},
-    {"return", T_RETURN}, {"fn", T_FN}, {"let", T_LET}, {"true", T_TRUE},
-    {"false", T_FALSE}, {"nil", T_NIL}, {"and", T_AND}, {"or", T_OR},
-    {"not", T_NOT}, {"match", T_MATCH}, {"try", T_TRY}, {"catch", T_CATCH},
-    {"finally", T_FINALLY}, {"throw", T_THROW}, {"import", T_IMPORT},
-    {NULL, T_EOF}
+/* quoted はエラーメッセージ用の表記 */
+#define KW(w, k) {w, "'" w "'", k}
+static const struct { const char *word; const char *quoted; TokKind kind; } keywords[] = {
+    KW("if", T_IF), KW("elif", T_ELIF), KW("else", T_ELSE), KW("unless", T_UNLESS),
+    KW("while", T_WHILE), KW("until", T_UNTIL), KW("for", T_FOR), KW("in", T_IN),
+    KW("loop", T_LOOP), KW("break", T_BREAK), KW("continue", T_CONTINUE),
+    KW("return", T_RETURN), KW("fn", T_FN), KW("let", T_LET), KW("true", T_TRUE),
+    KW("false", T_FALSE), KW("nil", T_NIL), KW("and", T_AND), KW("or", T_OR),
+    KW("not", T_NOT), KW("match", T_MATCH), KW("try", T_TRY), KW("catch", T_CATCH),
+    KW("finally", T_FINALLY), KW("throw", T_THROW), KW("import", T_IMPORT),
+    {NULL, NULL, T_EOF}
 };
+#undef KW
 
 /* UTF-8 で1文字エンコードする */
 static void encode_utf8(StrBuf *sb, unsigned long cp) {
@@ -262,6 +265,12 @@ static void lex_sq_string(Lexer *lx) {
     push_tok(lx, t);
 }
 
+/* 数値リテラル用のバッファに1文字追加する。長すぎる場合は切り捨てずにエラーにする */
+static void num_put(Lexer *lx, char *buf, size_t size, size_t *b, char c) {
+    if (*b >= size - 1) syntax_error(lx->line, NULL, "数値リテラルが長すぎます");
+    buf[(*b)++] = c;
+}
+
 static void lex_number(Lexer *lx) {
     const char *s = lx->src;
     size_t i = lx->i;
@@ -288,14 +297,14 @@ static void lex_number(Lexer *lx) {
         if (!digits) syntax_error(lx->line, NULL, "不正な数値リテラルです");
     } else {
         while (i < lx->len && (isdigit((unsigned char)s[i]) || s[i] == '_')) {
-            if (s[i] != '_' && b < sizeof(buf) - 1) buf[b++] = s[i];
+            if (s[i] != '_') num_put(lx, buf, sizeof(buf), &b, s[i]);
             i++;
         }
         /* "1..5" の ".." は範囲演算子なので小数点として読まない */
         if (i + 1 < lx->len && s[i] == '.' && isdigit((unsigned char)s[i + 1])) {
-            buf[b++] = s[i++];
+            num_put(lx, buf, sizeof(buf), &b, s[i++]);
             while (i < lx->len && (isdigit((unsigned char)s[i]) || s[i] == '_')) {
-                if (s[i] != '_' && b < sizeof(buf) - 1) buf[b++] = s[i];
+                if (s[i] != '_') num_put(lx, buf, sizeof(buf), &b, s[i]);
                 i++;
             }
         }
@@ -303,11 +312,8 @@ static void lex_number(Lexer *lx) {
             size_t j = i + 1;
             if (j < lx->len && (s[j] == '+' || s[j] == '-')) j++;
             if (j < lx->len && isdigit((unsigned char)s[j])) {
-                while (i < j && b < sizeof(buf) - 1) buf[b++] = s[i++];
-                while (i < lx->len && isdigit((unsigned char)s[i])) {
-                    if (b < sizeof(buf) - 1) buf[b++] = s[i];
-                    i++;
-                }
+                while (i < j) num_put(lx, buf, sizeof(buf), &b, s[i++]);
+                while (i < lx->len && isdigit((unsigned char)s[i])) num_put(lx, buf, sizeof(buf), &b, s[i++]);
             }
         }
         buf[b] = '\0';
@@ -509,10 +515,6 @@ const char *tok_kind_name(TokKind k) {
         default: break;
     }
     for (int i = 0; keywords[i].word; i++)
-        if (keywords[i].kind == k) {
-            static char buf[32];
-            snprintf(buf, sizeof(buf), "'%s'", keywords[i].word);
-            return buf;
-        }
+        if (keywords[i].kind == k) return keywords[i].quoted;
     return "?";
 }
