@@ -95,3 +95,22 @@ jobs:
             dist/laping-windows-x86_64.zip
             dist/laping-windows-x86_64-setup.exe
           generate_release_notes: true
+
+  # npm（@lapius/laping-lang）に公開する。Trusted Publisher（OIDC）で認証するのでトークンは不要
+  npm:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # OIDC での公開には npm 11.5.1 以降が必要
+      - run: pip install ziglang==0.16.0
+      - run: node npm/build.mjs "${GITHUB_REF_NAME#v}" --publish
+        env:
+          ZIG: python3 -m ziglang
