@@ -5,3 +5,4 @@ laping_update_tmp*
 laping-windows-x86_64-setup.exe
 *.o
 *.old
+laping_asan
