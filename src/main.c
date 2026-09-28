@@ -79,6 +79,40 @@ static void print_help(void) {
 
 static void print_version(void) { printf("laping %s (%s)\n", LAPING_VERSION, PLATFORM); }
 
+/* PATH に lapacks があるか(Windows は npm が作る lapacks.cmd を探す) */
+static int has_lapacks(void) {
+    const char *p = getenv("PATH");
+    char dir[4096], file[4200];
+    struct stat st;
+#if defined(_WIN32)
+    const char sep = ';', *name = "\\lapacks.cmd";
+#else
+    const char sep = ':', *name = "/lapacks";
+#endif
+    while (p && *p) {
+        const char *e = strchr(p, sep);
+        size_t n = e ? (size_t)(e - p) : strlen(p);
+        if (n > 0 && n < sizeof(dir)) {
+            memcpy(dir, p, n);
+            dir[n] = '\0';
+            snprintf(file, sizeof(file), "%s%s", dir, name);
+            if (stat(file, &st) == 0) return 1;
+        }
+        if (!e) break;
+        p = e + 1;
+    }
+    return 0;
+}
+
+/* --help / --version の最後に出す作者表示と lapacks の案内 */
+static void print_lapius_footer(void) {
+    printf("作者: Lapius (https://github.com/Lapius7)\n");
+    if (has_lapacks())
+        printf("@lapius のツール: lapacks で一覧・インストール・更新\n");
+    else
+        printf("@lapius のツール: npm i -g @lapius/lapacks で一覧・インストール・更新を管理\n");
+}
+
 /* ===================================================================== */
 /*  REPL                                                                  */
 /* ===================================================================== */
@@ -531,10 +565,13 @@ static void real_main(void) {
     }
     if (is_command(cmd, "version") || is_command(cmd, "--version") || is_command(cmd, "-v")) {
         print_version();
+        print_lapius_footer();
         return;
     }
     if (is_command(cmd, "help") || is_command(cmd, "--help") || is_command(cmd, "-h")) {
         print_help();
+        printf("\n");
+        print_lapius_footer();
         return;
     }
     if (is_command(cmd, "check")) {
