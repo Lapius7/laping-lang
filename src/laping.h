@@ -17,7 +17,7 @@
 #include <setjmp.h>
 
 #ifndef LAPING_VERSION /* npm 版はビルド時に -DLAPING_VERSION で渡す */
-#define LAPING_VERSION "v2.1.1"
+#define LAPING_VERSION "v2.1.2"
 #endif
 
 /* 呼び出し元に戻らない関数（エラー送出など）の印。静的解析器とコンパイラに伝える */
