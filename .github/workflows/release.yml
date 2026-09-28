@@ -19,7 +19,7 @@ jobs:
         run: gcc -O2 -Wall -Wextra -o laping-linux-x86_64 src/*.c -lcurl -lm -lpthread
       - name: Test
         run: tests/run_tests.sh ./laping-linux-x86_64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: laping-linux-x86_64
           path: laping-linux-x86_64
@@ -46,11 +46,11 @@ jobs:
             -Wl,--stack,268435456
           cp curl-mingw/bin/libcurl-x64.dll .
           zip laping-windows-x86_64.zip laping.exe libcurl-x64.dll
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: laping-windows-x86_64
           path: laping-windows-x86_64.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: laping-windows-binaries
           path: |
@@ -62,7 +62,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: laping-windows-binaries
       - name: Install Inno Setup
@@ -74,7 +74,7 @@ jobs:
           $version = "${{ github.ref_name }}" -replace '^v',''
           $env:LAPING_VERSION = $version
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: laping-windows-setup
           path: laping-windows-x86_64-setup.exe
@@ -83,7 +83,7 @@ jobs:
     needs: [build-linux, build-windows, build-installer]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
