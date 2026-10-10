@@ -110,7 +110,7 @@ static void print_lapius_footer(void) {
     if (has_lapacks())
         printf("@lapius のツール: lapacks で一覧・インストール・更新\n");
     else
-        printf("@lapius のツール: npm i -g @lapius/lapacks で一覧・インストール・更新を管理\n");
+        printf("@lapius のツール: pnpm add -g @lapius/lapacks で一覧・インストール・更新を管理\n");
 }
 
 /* ===================================================================== */
@@ -557,7 +557,7 @@ static void real_main(void) {
     if (is_command(cmd, "update") || is_command(cmd, "--update")) {
 #ifdef LAPING_NPM
         /* npm 版は libcurl を使う自己更新を持たず、npm で更新する */
-        printf("npm i -g @lapius/laping-lang で最新版に更新できます\n");
+        printf("pnpm add -g @lapius/laping-lang で最新版に更新できます\n");
 #else
         run_self_update(LAPING_VERSION);
 #endif

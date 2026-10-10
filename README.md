@@ -92,7 +92,7 @@ Laping の構文は、他の言語の記号をそのまま借りるのではな�
 ### npm（推奨・Linux / macOS / Windows）
 
 ```bash
-npm i -g @lapius/laping-lang
+pnpm add -g @lapius/laping-lang
 ```
 
 OS と CPU に合ったビルド済みバイナリが入り、`laping` コマンドが使えるようになります（Node.js 18 以降、C コンパイラ不要）。更新も同じコマンドです（npm 版では `laping update` は自動更新せず、この更新コマンドを案内します）。
@@ -218,7 +218,7 @@ test "足し算ができる" {
 
 ## 自動更新の仕組み
 
-Release から取得した版で `laping update` を実行すると、以下の流れで動作します（npm で入れた場合は自動更新せず、`npm i -g @lapius/laping-lang` を案内します）。
+Release から取得した版で `laping update` を実行すると、以下の流れで動作します（npm で入れた場合は自動更新せず、`pnpm add -g @lapius/laping-lang` を案内します）。
 
 1. `https://api.github.com/repos/Lapius7/laping-lang/releases/latest` にアクセスし、最新リリースのタグを取得
 2. 実行中のバージョン（`laping --version`）と比較
@@ -226,7 +226,7 @@ Release から取得した版で `laping update` を実行すると、以下の�
 4. Windowsの場合は標準搭載の`tar.exe`でzipを展開し、中の`laping.exe`と`libcurl-x64.dll`を取り出す（Windows 10 1803以降が必要）
 5. 現在の実行ファイル（とWindowsの場合はDLL）をバックアップしてから新しいものに置き換える
 
-開発者がGitHubに新しいバージョンをタグ付き（`vX.Y.Z`）でプッシュすると、CI（GitHub Actions）がLinux/Windows向けにビルドしてReleaseへ自動添付します。同じタグから npm 版も自動で公開されます。各ユーザーは `laping update`（npm 版は `npm i -g @lapius/laping-lang`）を実行するだけで最新版に追従できます。
+開発者がGitHubに新しいバージョンをタグ付き（`vX.Y.Z`）でプッシュすると、CI（GitHub Actions）がLinux/Windows向けにビルドしてReleaseへ自動添付します。同じタグから npm 版も自動で公開されます。各ユーザーは `laping update`（npm 版は `pnpm add -g @lapius/laping-lang`）を実行するだけで最新版に追従できます。
 
 ## 構文リファレンス
 
