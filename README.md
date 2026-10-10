@@ -89,7 +89,9 @@ Laping の構文は、他の言語の記号をそのまま借りるのではな�
 
 ## インストール
 
-### npm（推奨・Linux / macOS / Windows）
+### pnpm（推奨・Linux / macOS / Windows）
+
+> このパッケージは **pnpm 前提**です。npm と pnpm の両方に入れると同じコマンドが二重になるため、`pnpm add -g` だけを使ってください。
 
 ```bash
 pnpm add -g @lapius/laping-lang
