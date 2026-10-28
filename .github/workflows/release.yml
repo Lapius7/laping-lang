@@ -107,7 +107,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@latest # OIDC での公開には npm 11.5.1 以降が必要
       - run: pip install ziglang==0.16.0
